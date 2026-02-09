@@ -21,10 +21,54 @@ public class ReservationController {
     private HotelDAO hotelDAO = new HotelDAO();
     private ReservationDAO reservationDAO = new ReservationDAO();
 
+    // ==================== FRONT-OFFICE ====================
+
     /**
-     * Affiche le formulaire d'insertion de réservation
+     * Affiche la liste de toutes les réservations (Front-Office)
      */
-    @GetMapping("/reservation/form")
+    @GetMapping("/reservations")
+    public ModelView listReservations() {
+        ModelView mv = new ModelView("/WEB-INF/views/reservation-list.jsp");
+        try {
+            List<Reservation> reservations = reservationDAO.findAll();
+            mv.addItem("reservations", reservations);
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur lors du chargement des réservations: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    /**
+     * Filtre les réservations par date d'arrivée (Front-Office)
+     */
+    @GetMapping("/reservations/filter")
+    public ModelView filterReservations(@RequestParam("dateArrivee") String dateArrivee) {
+        ModelView mv = new ModelView("/WEB-INF/views/reservation-list.jsp");
+        try {
+            List<Reservation> reservations;
+            if (dateArrivee != null && !dateArrivee.trim().isEmpty()) {
+                Date date = Date.valueOf(dateArrivee);
+                reservations = reservationDAO.findByDateArrivee(date);
+                mv.addItem("filterDate", dateArrivee);
+            } else {
+                reservations = reservationDAO.findAll();
+            }
+            mv.addItem("reservations", reservations);
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur lors du filtrage: " + e.getMessage());
+            try {
+                mv.addItem("reservations", reservationDAO.findAll());
+            } catch (Exception ex) {
+                // Ignorer
+            }
+        }
+        return mv;
+    }
+
+    /**
+     * Affiche le formulaire de réservation (Front-Office)
+     */
+    @GetMapping("/reservations/new")
     public ModelView showForm() {
         ModelView mv = new ModelView("/WEB-INF/views/reservation-form.jsp");
         try {
@@ -37,13 +81,12 @@ public class ReservationController {
     }
 
     /**
-     * Traite la soumission du formulaire de réservation
+     * Enregistre une nouvelle réservation (Front-Office)
      */
-    @PostMapping("/reservation/save")
-    public ModelView saveReservation(
-            @RequestParam("hotelId") String hotelId, 
+    @PostMapping("/reservations")
+    public ModelView saveReservation(@RequestParam("hotelId") String hotelId, 
             @RequestParam("dateArrivee") String dateArrivee, 
-            @RequestParam("heureArrivee") String heureArrivee,
+            @RequestParam("heureArrivee") String heureArrivee, 
             @RequestParam("dateDepart") String dateDepart, 
             @RequestParam("nombrePersonnes") String nombrePersonnes, 
             @RequestParam("nomClient") String nomClient,
