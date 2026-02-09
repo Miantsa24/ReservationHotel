@@ -35,18 +35,4 @@ CREATE TABLE IF NOT EXISTS reservations (
     FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE
 );
 
--- =============================================
--- Insertion des hôtels (données de test)
--- =============================================
-INSERT INTO hotels (nom, adresse, ville, etoiles, prix_par_nuit) VALUES
-('Hôtel Aéroport Premium', '1 Avenue de l\'Aéroport', 'Paris', 4, 150.00),
-('Ibis Aéroport', '25 Rue du Terminal', 'Paris', 3, 85.00),
-('Novotel Airport', '10 Boulevard des Voyageurs', 'Paris', 4, 120.00),
-('Première Classe Aéroport', '5 Rue des Pilotes', 'Paris', 2, 55.00),
-('Hilton Airport', '100 Avenue Charles de Gaulle', 'Paris', 5, 250.00),
-('Mercure Escale', '15 Rue de l\'Escale', 'Paris', 3, 95.00),
-('B&B Hôtel Aéroport', '8 Impasse du Décollage', 'Paris', 2, 60.00),
-('Marriott Airport', '50 Avenue des Nations', 'Paris', 5, 280.00);
 
--- Vérification des insertions
-SELECT * FROM hotels;
