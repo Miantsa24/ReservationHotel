@@ -68,7 +68,7 @@ public class ReservationController {
     /**
      * Affiche le formulaire de réservation (Front-Office)
      */
-    @GetMapping("/reservations/new")
+    @GetMapping("/reservation/form")
     public ModelView showForm() {
         ModelView mv = new ModelView("/WEB-INF/views/reservation-form.jsp");
         try {
@@ -83,7 +83,7 @@ public class ReservationController {
     /**
      * Enregistre une nouvelle réservation (Front-Office)
      */
-    @PostMapping("/reservations")
+    @PostMapping("/reservation/save")
     public ModelView saveReservation(@RequestParam("hotelId") String hotelId, 
             @RequestParam("dateArrivee") String dateArrivee, 
             @RequestParam("heureArrivee") String heureArrivee, 
