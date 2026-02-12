@@ -1,32 +1,10 @@
-# Guide d'Environnement Git et Todo List pour le Projet Hôtel
+## Rôles:
 
-## 1. Environnement Git
+   Team Lead : Malala ETU003211
+   Dev 1 (BackOffice) : Tojo ETU003362
+   Dev 2 (FrontOffice) : Alexandra ETU003306
 
-### Branches Principales
-- **main** : Branche principale, gérée par le Team Lead (TL). Toutes les merges finales arrivent ici.
-- **staging** : Branche pour les déploiements locaux. Créée à partir de `main`.
-- **release** : Branche pour les déploiements sur serveur (Render). Créée à partir de `main`.
-
-### Workflow Git
-1. **TL** : Crée les branches `staging` et `release` via l'interface GitHub/GitLab (dans le repository, aller dans "Branches" > "New branch").
-2. **Développeurs** : Pour chaque fonctionnalité (feature), créer une branche `feature/[nom-feature]` à partir de `main`.
-3. **Pull Requests (PR)** : Les devs font des PR vers `main`. TL fait le code review :
-   - Si OK : Merge la PR.
-   - Si erreurs : Rejette la PR, dev corrige et refait la PR.
-4. **Déploiement** :
-   - TL merge vers `staging`, déploie localement.
-   - Si erreurs : Devs créent branche `fix/[nom-fix]` (cherry-pick via interface), PR vers `main`, puis nouveau merge vers `staging`.
-   - Si OK : Devs créent `release`, TL déploie sur Render.
-5. **Protection des branches** : Via l'interface GitHub/GitLab, protéger `main`, `staging`, `release` pour que seuls les merges via PR approuvées soient autorisés. TL doit approuver.
-
-### Instructions pour Créer les Branches (via Interface)
-- Allez dans le repository GitHub/GitLab.
-- Cliquez sur "Branches" ou "View all branches".
-- Cliquez "New branch".
-- Nommez : `staging` (source : `main`), puis `release` (source : `main`).
-- Pour les devs : Créez `feature/[nom]` à partir de `main`.
-
-## 2. Todo List pour Sprint 1
+## Todo List pour Sprint 1
 
 ### Rôles et Responsabilités
 - **TL (Team Lead)** : Code reviews, assignation des tâches, création du todo list, merges, déploiements.
