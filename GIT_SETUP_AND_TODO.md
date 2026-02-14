@@ -57,8 +57,8 @@
 ## Rôles:
 - **Sprint2: 
    Team Lead : Alexandra ETU003306
-   Dev 1 (BackOffice) : 
-   Dev 2 (FrontOffice) : 
+   Dev 1 (BackOffice) : Malala ETU003211
+   Dev 2 (FrontOffice) : Tojo ETU003362
 
 ## Todo List pour Sprint 2
 
