@@ -76,7 +76,7 @@
                         <configuration>
                             <target>
                                 <copy file="${project.build.directory}/${project.build.finalName}.war"
-                                      todir="C:\Program Files\apache-tomcat-10.1.39\webapps"/>
+                                      todir="C:\Program Files\Apache Software Foundation\apache-tomcat-10.1.49\webapps"/>
                             </target>
                         </configuration>
                     </execution>

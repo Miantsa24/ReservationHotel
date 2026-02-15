@@ -1,11 +1,10 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="java.util.List" %>
-<%@ page import="models.Hotel" %>
+<%@ page import="models.Vehicule" %>
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Nouvelle Réservation - Back-office Hôtel</title>
+    <title><%= request.getAttribute("vehicule") != null ? "Modifier" : "Nouveau" %> Véhicule - Back-office Hôtel</title>
     <style>
         :root {
             --primary-color: #4299e1;
@@ -155,10 +154,37 @@
             color: #742a2a;
             border: 1px solid var(--error-color);
         }
-        .hotel-info {
-            font-size: 12px;
+        .nav-links {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .nav-links a {
             color: var(--text-secondary);
-            margin-top: 4px;
+            text-decoration: none;
+            margin: 0 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            position: relative;
+        }
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: var(--primary-color);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+        .nav-links a:hover {
+            color: var(--primary-color);
+            background: rgba(66, 153, 225, 0.1);
         }
         @media (max-width: 768px) {
             .container {
@@ -176,63 +202,70 @@
 </head>
 <body>
     <div class="container">
-        <h1>🏨 Nouvelle Réservation</h1>
-        
+        <h1>🚗 <%= request.getAttribute("vehicule") != null ? "Modifier" : "Nouveau" %> Véhicule</h1>
+
+        <div class="nav-links">
+            <a href="<%= request.getContextPath() %>/vehicules">📋 Liste des véhicules</a>
+        </div>
+
         <% if (request.getAttribute("success") != null) { %>
             <div class="alert alert-success">
                 ✅ <%= request.getAttribute("success") %>
             </div>
         <% } %>
-        
+
         <% if (request.getAttribute("error") != null) { %>
             <div class="alert alert-error">
                 ❌ <%= request.getAttribute("error") %>
             </div>
         <% } %>
-        
-        <form action="${pageContext.request.contextPath}/reservation/save" method="POST">
+
+        <%
+            Vehicule vehicule = (Vehicule) request.getAttribute("vehicule");
+            boolean isEdit = vehicule != null;
+        %>
+
+        <form action="${pageContext.request.contextPath}/vehicule/save" method="POST">
+            <input type="hidden" name="id" value="<%= isEdit ? vehicule.getId() : 0 %>">
+
             <div class="form-group">
-                <label for="hotelId">Hôtel *</label>
-                <select name="hotelId" id="hotelId" required>
-                    <option value="">-- Sélectionnez un hôtel --</option>
-                    <% 
-                    List<Hotel> hotels = (List<Hotel>) request.getAttribute("hotels");
-                    if (hotels != null) {
-                        for (Hotel hotel : hotels) { 
-                    %>
-                        <option value="<%= hotel.getId() %>">
-                            <%= hotel.getNom() %> (<%= hotel.getCode() %>)
-                        </option>
-                    <% 
-                        }
-                    } 
-                    %>
-                </select>
+                <label for="marque">Marque *</label>
+                <input type="text" name="marque" id="marque" placeholder="Toyota, Peugeot, etc." required
+                       value="<%= isEdit ? vehicule.getMarque() : "" %>">
             </div>
-            
+
             <div class="row">
                 <div class="form-group">
-                    <label for="dateArrivee">Date d'arrivée *</label>
-                    <input type="date" name="dateArrivee" id="dateArrivee" required>
+                    <label for="capacite">Capacité (personnes) *</label>
+                    <input type="number" name="capacite" id="capacite" min="1" max="50" required
+                           value="<%= isEdit ? vehicule.getCapacite() : "" %>">
                 </div>
                 <div class="form-group">
-                    <label for="heureArrivee">Heure d'arrivée *</label>
-                    <input type="time" name="heureArrivee" id="heureArrivee" required>
+                    <label for="typeCarburant">Type de carburant *</label>
+                    <select name="typeCarburant" id="typeCarburant" required>
+                        <option value="">-- Sélectionnez --</option>
+                        <option value="Essence" <%= isEdit && "Essence".equals(vehicule.getTypeCarburant()) ? "selected" : "" %>>Essence</option>
+                        <option value="Diesel" <%= isEdit && "Diesel".equals(vehicule.getTypeCarburant()) ? "selected" : "" %>>Diesel</option>
+                        <option value="Électrique" <%= isEdit && "Électrique".equals(vehicule.getTypeCarburant()) ? "selected" : "" %>>Électrique</option>
+                        <option value="Hybride" <%= isEdit && "Hybride".equals(vehicule.getTypeCarburant()) ? "selected" : "" %>>Hybride</option>
+                    </select>
                 </div>
             </div>
-            
+
             <div class="row">
                 <div class="form-group">
-                    <label for="nombrePersonnes">Nombre de personnes *</label>
-                    <input type="number" name="nombrePersonnes" id="nombrePersonnes" min="1" required>
+                    <label for="vitesseMoyenne">Vitesse moyenne (km/h) *</label>
+                    <input type="number" name="vitesseMoyenne" id="vitesseMoyenne" min="1" max="200" step="0.1" required
+                           value="<%= isEdit ? vehicule.getVitesseMoyenne() : "" %>">
                 </div>
                 <div class="form-group">
-                    <label for="refClient">Référence client *</label>
-                    <input type="text" name="refClient" id="refClient" placeholder="REF123" required>
+                    <label for="tempsAttente">Temps d'attente (minutes) *</label>
+                    <input type="number" name="tempsAttente" id="tempsAttente" min="0" max="1440" required
+                           value="<%= isEdit ? vehicule.getTempsAttente() : "" %>">
                 </div>
             </div>
-            
-            <button type="submit">📝 Enregistrer la réservation</button>
+
+            <button type="submit">💾 <%= isEdit ? "Modifier" : "Enregistrer" %> le véhicule</button>
         </form>
     </div>
 </body>
