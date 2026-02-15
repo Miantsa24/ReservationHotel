@@ -87,11 +87,8 @@ public class ReservationController {
     public ModelView saveReservation(@RequestParam("hotelId") String hotelId, 
             @RequestParam("dateArrivee") String dateArrivee, 
             @RequestParam("heureArrivee") String heureArrivee, 
-            @RequestParam("dateDepart") String dateDepart, 
             @RequestParam("nombrePersonnes") String nombrePersonnes, 
-            @RequestParam("nomClient") String nomClient,
-            @RequestParam("emailClient") String emailClient, 
-            @RequestParam("telephoneClient") String telephoneClient) {
+            @RequestParam("refClient") String refClient) {
         
         ModelView mv = new ModelView("/WEB-INF/views/reservation-form.jsp");
         
@@ -101,11 +98,8 @@ public class ReservationController {
             reservation.setHotelId(Integer.parseInt(hotelId));
             reservation.setDateArrivee(Date.valueOf(dateArrivee));
             reservation.setHeureArrivee(Time.valueOf(heureArrivee + ":00"));
-            reservation.setDateDepart(Date.valueOf(dateDepart));
             reservation.setNombrePersonnes(Integer.parseInt(nombrePersonnes));
-            reservation.setNomClient(nomClient);
-            reservation.setEmailClient(emailClient);
-            reservation.setTelephoneClient(telephoneClient);
+            reservation.setRefClient(refClient);
 
             // Sauvegarde en base
             reservationDAO.save(reservation);

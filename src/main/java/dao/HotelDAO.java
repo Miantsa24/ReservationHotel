@@ -9,7 +9,7 @@ public class HotelDAO {
 
     public List<Hotel> findAll() throws SQLException {
         List<Hotel> hotels = new ArrayList<>();
-        String sql = "SELECT * FROM hotels ORDER BY nom";
+        String sql = "SELECT id, nom, code FROM hotels ORDER BY nom";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
@@ -19,11 +19,7 @@ public class HotelDAO {
                 Hotel hotel = new Hotel();
                 hotel.setId(rs.getInt("id"));
                 hotel.setNom(rs.getString("nom"));
-                hotel.setAdresse(rs.getString("adresse"));
-                hotel.setVille(rs.getString("ville"));
-                hotel.setEtoiles(rs.getInt("etoiles"));
-                hotel.setPrixParNuit(rs.getBigDecimal("prix_par_nuit"));
-                hotel.setCreatedAt(rs.getTimestamp("created_at"));
+                hotel.setCode(rs.getString("code"));
                 hotels.add(hotel);
             }
         }
@@ -31,7 +27,7 @@ public class HotelDAO {
     }
 
     public Hotel findById(int id) throws SQLException {
-        String sql = "SELECT * FROM hotels WHERE id = ?";
+        String sql = "SELECT id, nom, code FROM hotels WHERE id = ?";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -42,11 +38,7 @@ public class HotelDAO {
                     Hotel hotel = new Hotel();
                     hotel.setId(rs.getInt("id"));
                     hotel.setNom(rs.getString("nom"));
-                    hotel.setAdresse(rs.getString("adresse"));
-                    hotel.setVille(rs.getString("ville"));
-                    hotel.setEtoiles(rs.getInt("etoiles"));
-                    hotel.setPrixParNuit(rs.getBigDecimal("prix_par_nuit"));
-                    hotel.setCreatedAt(rs.getTimestamp("created_at"));
+                    hotel.setCode(rs.getString("code"));
                     return hotel;
                 }
             }

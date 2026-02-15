@@ -11,11 +11,7 @@ USE hotel_db;
 CREATE TABLE IF NOT EXISTS hotels (
     id INT PRIMARY KEY AUTO_INCREMENT,
     nom VARCHAR(100) NOT NULL,
-    adresse VARCHAR(255),
-    ville VARCHAR(100),
-    etoiles INT CHECK (etoiles BETWEEN 1 AND 5),
-    prix_par_nuit DECIMAL(10, 2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    code VARCHAR(50) NOT NULL
 );
 
 -- =============================================
@@ -26,13 +22,30 @@ CREATE TABLE IF NOT EXISTS reservations (
     hotel_id INT NOT NULL,
     date_arrivee DATE NOT NULL,
     heure_arrivee TIME NOT NULL,
-    date_depart DATE NOT NULL,
     nombre_personnes INT NOT NULL,
-    nom_client VARCHAR(100) NOT NULL,
-    email_client VARCHAR(100),
-    telephone_client VARCHAR(20),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ref_client VARCHAR(50) NOT NULL,
     FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE
+);
+
+-- =============================================
+-- Table des véhicules
+-- =============================================
+CREATE TABLE IF NOT EXISTS vehicules (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    marque VARCHAR(100) NOT NULL,
+    capacite INT NOT NULL,
+    typeCarburant VARCHAR(50) NOT NULL,
+    vitesseMoyenne DECIMAL(5,2) NOT NULL,
+    tempsAttente INT NOT NULL
+);
+
+-- =============================================
+-- Table des tokens
+-- =============================================
+CREATE TABLE IF NOT EXISTS tokens (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    token VARCHAR(255) NOT NULL,
+    heure_expiration DATETIME NOT NULL
 );
 
 
