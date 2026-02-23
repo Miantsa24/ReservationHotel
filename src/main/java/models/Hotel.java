@@ -1,27 +1,17 @@
 package models;
 
-import java.math.BigDecimal;
-import java.sql.Timestamp;
-
 public class Hotel {
     private int id;
     private String nom;
-    private String adresse;
-    private String ville;
-    private int etoiles;
-    private BigDecimal prixParNuit;
-    private Timestamp createdAt;
+    private String code;
 
     // Constructeurs
     public Hotel() {}
 
-    public Hotel(int id, String nom, String adresse, String ville, int etoiles, BigDecimal prixParNuit) {
+    public Hotel(int id, String nom, String code) {
         this.id = id;
         this.nom = nom;
-        this.adresse = adresse;
-        this.ville = ville;
-        this.etoiles = etoiles;
-        this.prixParNuit = prixParNuit;
+        this.code = code;
     }
 
     // Getters et Setters
@@ -31,18 +21,6 @@ public class Hotel {
     public String getNom() { return nom; }
     public void setNom(String nom) { this.nom = nom; }
 
-    public String getAdresse() { return adresse; }
-    public void setAdresse(String adresse) { this.adresse = adresse; }
-
-    public String getVille() { return ville; }
-    public void setVille(String ville) { this.ville = ville; }
-
-    public int getEtoiles() { return etoiles; }
-    public void setEtoiles(int etoiles) { this.etoiles = etoiles; }
-
-    public BigDecimal getPrixParNuit() { return prixParNuit; }
-    public void setPrixParNuit(BigDecimal prixParNuit) { this.prixParNuit = prixParNuit; }
-
-    public Timestamp getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
 }

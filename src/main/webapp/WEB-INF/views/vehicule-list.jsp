@@ -1,12 +1,12 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
-<%@ page import="models.Reservation" %>
+<%@ page import="models.Vehicule" %>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liste des Réservations - Front Office</title>
+    <title>Liste des Véhicules - Back Office</title>
     <style>
         :root {
             --primary-color: #4299e1;
@@ -63,96 +63,6 @@
                 opacity: 1;
                 transform: translateY(0);
             }
-        }
-        .filter-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: var(--border-radius-large);
-            padding: 40px;
-            margin-bottom: 32px;
-            box-shadow: var(--shadow-medium);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            animation: slideInLeft 0.6s ease-out 0.2s both;
-        }
-        @keyframes slideInLeft {
-            from {
-                opacity: 0;
-                transform: translateX(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-        .filter-form {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .filter-form label {
-            font-weight: 600;
-            color: var(--text-secondary);
-            font-size: 14px;
-            letter-spacing: 0.025em;
-            text-transform: uppercase;
-        }
-        .filter-form input[type="date"] {
-            padding: 14px 18px;
-            border: 2px solid var(--secondary-color);
-            border-radius: var(--border-radius);
-            font-size: 14px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            background: #ffffff;
-            color: var(--text-primary);
-        }
-        .filter-form input[type="date"]:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.15), var(--shadow-light);
-            transform: translateY(-1px);
-        }
-        .btn {
-            padding: 14px 28px;
-            border: none;
-            border-radius: var(--border-radius);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            text-decoration: none;
-            display: inline-block;
-            position: relative;
-            overflow: hidden;
-        }
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-        .btn:hover::before {
-            left: 100%;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-            color: white;
-        }
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: var(--shadow-hover);
-        }
-        .btn-secondary {
-            background: var(--secondary-color);
-            color: var(--text-secondary);
-        }
-        .btn-secondary:hover {
-            background: #cbd5e0;
-            transform: translateY(-1px);
         }
         .table-card {
             background: rgba(255, 255, 255, 0.95);
@@ -225,6 +135,11 @@
             color: #2a4365;
             border: 1px solid #4299e1;
         }
+        .alert-success {
+            background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+            color: #22543d;
+            border: 1px solid var(--accent-color);
+        }
         .badge {
             padding: 8px 14px;
             border-radius: 20px;
@@ -280,16 +195,43 @@
             font-size: 14px;
             font-weight: 500;
         }
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-action {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-edit {
+            background: var(--primary-color);
+            color: white;
+        }
+        .btn-edit:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        .btn-delete {
+            background: var(--error-color);
+            color: white;
+        }
+        .btn-delete:hover {
+            background: #e53e3e;
+            transform: translateY(-1px);
+        }
         @media (max-width: 768px) {
             .container {
                 padding: 16px;
             }
-            .filter-card, .table-card {
+            .table-card {
                 padding: 24px;
-            }
-            .filter-form {
-                flex-direction: column;
-                align-items: stretch;
             }
             .nav-links a {
                 margin: 8px;
@@ -303,16 +245,20 @@
             th, td {
                 padding: 12px 8px;
             }
+            .actions {
+                flex-direction: column;
+                gap: 4px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🏨 Liste des Réservations</h1>
-        
+        <h1>🚗 Liste des Véhicules</h1>
+
         <div class="nav-links">
-            <a href="reservations">📋 Toutes les réservations</a>
-            <a href="reservation/form">➕ Nouvelle réservation</a>
+            <a href="<%= request.getContextPath() %>/vehicule/form">➕ Nouveau véhicule</a>
+            <a href="<%= request.getContextPath() %>/reservations">📋 Réservations</a>
         </div>
 
         <!-- Messages d'erreur -->
@@ -322,62 +268,58 @@
             </div>
         <% } %>
 
-        <!-- Filtre actif -->
-        <% if (request.getAttribute("filterDate") != null) { %>
-            <div class="alert alert-info">
-                🔍 Filtre actif : Date d'arrivée = <strong><%= request.getAttribute("filterDate") %></strong>
-                <a href="<%= request.getContextPath() %>/reservations" class="btn btn-secondary" style="margin-left: 15px; padding: 5px 15px;">Effacer le filtre</a>
+        <!-- Message de succès -->
+        <% if (request.getAttribute("success") != null) { %>
+            <div class="alert alert-success">
+                ✅ <%= request.getAttribute("success") %>
             </div>
         <% } %>
 
-        <!-- Carte de filtre -->
-        <div class="filter-card">
-            <form action="reservations/filter" method="get" class="filter-form">
-                <label for="dateArrivee">🗓️ Filtrer par date d'arrivée :</label>
-                <input type="date" id="dateArrivee" name="dateArrivee" 
-                       value="<%= request.getAttribute("filterDate") != null ? request.getAttribute("filterDate") : "" %>">
-                <button type="submit" class="btn btn-primary">🔍 Filtrer</button>
-            </form>
-        </div>
-
-        <!-- Tableau des réservations -->
+        <!-- Tableau des véhicules -->
         <div class="table-card">
             <%
-                List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
-                if (reservations != null && !reservations.isEmpty()) {
+                List<Vehicule> vehicules = (List<Vehicule>) request.getAttribute("vehicules");
+                if (vehicules != null && !vehicules.isEmpty()) {
             %>
             <div class="stats">
-                <span class="stat-badge">📊 Total : <%= reservations.size() %> réservation(s)</span>
+                <span class="stat-badge">📊 Total : <%= vehicules.size() %> véhicule(s)</span>
             </div>
             <table>
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>Réf. Client</th>
-                        <th>Hôtel</th>
-                        <th>Date d'arrivée</th>
-                        <th>Heure</th>
-                        <th>Personnes</th>
+                        <th>Marque</th>
+                        <th>Capacité</th>
+                        <th>Carburant</th>
+                        <th>Vitesse Moy.</th>
+                        <th>Temps Attente</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <% for (Reservation r : reservations) { %>
+                    <% for (Vehicule v : vehicules) { %>
                     <tr>
-                        <td><span class="badge badge-info">#<%= r.getId() %></span></td>
-                        <td><strong><%= r.getRefClient() %></strong></td>
-                        <td><%= r.getHotelNom() %></td>
-                        <td><%= r.getDateArrivee() %></td>
-                        <td><%= r.getHeureArrivee() %></td>
-                        <td><%= r.getNombrePersonnes() %> 👤</td>
+                        <td><span class="badge badge-info">#<%= v.getId() %></span></td>
+                        <td><strong><%= v.getMarque() %></strong></td>
+                        <td><%= v.getCapacite() %> 👤</td>
+                        <td><%= v.getTypeCarburant() %></td>
+                        <td><%= v.getVitesseMoyenne() %> km/h</td>
+                        <td><%= v.getTempsAttente() %> min</td>
+                        <td class="actions">
+                            <a href="<%= request.getContextPath() %>/vehicule/edit?id=<%= v.getId() %>" class="btn-action btn-edit">✏️ Modifier</a>
+                            <a href="<%= request.getContextPath() %>/vehicule/delete?id=<%= v.getId() %>"
+                               onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce véhicule ?')"
+                               class="btn-action btn-delete">🗑️ Supprimer</a>
+                        </td>
                     </tr>
                     <% } %>
                 </tbody>
             </table>
             <% } else { %>
             <div class="no-data">
-                <p>📭 Aucune réservation trouvée.</p>
+                <p>🚗 Aucun véhicule trouvé.</p>
                 <p style="margin-top: 10px;">
-                    <a href="reservation/form" class="btn btn-primary">➕ Créer une réservation</a>
+                    <a href="<%= request.getContextPath() %>/vehicule/form" class="btn-action btn-edit" style="padding: 12px 24px;">➕ Créer un véhicule</a>
                 </p>
             </div>
             <% } %>
