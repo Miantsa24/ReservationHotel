@@ -131,4 +131,12 @@ public class VehiculeController {
         }
         return mv;
     }
+
+    /**
+     * Affiche la page front-office pour interroger l'API véhicules.
+     */
+    @GetMapping("/vehicule/api")
+    public ModelView showApiPage() {
+        return new ModelView("/WEB-INF/views/vehicule-api.jsp");
+    }
 }
