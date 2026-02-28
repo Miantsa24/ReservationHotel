@@ -28,4 +28,26 @@ public class TokenDAO {
         }
         return null;
     }
+
+    /**
+     * Vérifie qu'un token existe et n'est pas expiré.
+     * @param token valeur du token à vérifier
+     * @return true si valide, false sinon
+     * @throws SQLException en cas de problème de connexion
+     */
+    public boolean isValidToken(String token) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM tokens WHERE token = ? AND heure_expiration > CURRENT_TIMESTAMP";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, token);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
 }
