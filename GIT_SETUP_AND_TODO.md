@@ -109,3 +109,86 @@
 5. **Intégration framework** : Assurer que le framework personnalisé est intégré (dossier avec FrontServlet et annotations) pour gérer les routes et retourner les données.
 6. **Commiter et pousser** : Commiter les changements, pousser la branche.
 7. **Pull Request** : Faire PR vers `main` pour review par TL.
+
+=================================================================================================================================================
+
+
+## Rôles:
+- **Sprint 3:**
+   Team Lead : Tojo ETU003362
+   Dev 1 (BackOffice) : Malala ETU003211
+   Dev 2 (BackOffice) : Alexandra ETU003306
+
+## Todo List pour Sprint 3
+
+### Rôles et Responsabilités
+- **TL (Team Lead)** : Code reviews, assignation des tâches, création du todo list, merges, déploiements.
+- **Dev1 (Back-office)** : Script BDD (table distance) + Page 1 (saisie date) + logique d'assignation automatique véhicule-réservation.
+- **Dev2 (Back-office)** : Page 2 (affichage traçabilité véhicules) + calcul heure de retour à l'aéroport.
+
+### Tâches pour Sprint 3
+
+#### TL (Team Lead) : Tojo ETU003362
+1. Assigner les tâches aux devs via le todo list dans `GIT_SETUP_AND_TODO.md`.
+2. Suppression des anciennes features : `feature/backoffice-vehicules` et `feature/frontoffice-vehicules-api`.
+3. Après réception des PR des devs :
+   - Faire code review.
+   - Si OK : Merger vers `main`, puis vers `staging`.
+   - Déployer localement (tester l'application).
+   - Si erreurs : Demander aux devs de créer une branche `fix/[nom]` et refaire PR.
+4. Une fois staging OK : Merger vers `release`, déployer sur Render.
+
+#### Dev1 (Back-office) : Malala ETU003211
+1. **Créer branche** : `feature/backoffice-sprint3-dev1` à partir de `main`.
+2. **Script base de données** : Ajouter la table `distance` avec les colonnes suivantes :
+   - `id` (INT, PK, AUTO_INCREMENT)
+   - `from` (VARCHAR — point de départ, ex: "Aéroport", "Hôtel Colbert")
+   - `to` (VARCHAR — point d'arrivée, ex: "Hôtel Ibis", "Aéroport")
+   - `km` (DECIMAL — distance en kilomètres)
+   - Insérer des données de test cohérentes avec les hôtels existants (une seule entrée par paire de lieux, ex: Aéroport ↔ Hôtel X = 15km).
+   - **Important** : La gestion bidirectionnelle (aller = retour) doit être faite côté backend dans la méthode de récupération de distance (pas de duplication dans la BDD).
+3. **Assignation automatique véhicule-réservation** : Implémenter dans un SERVICE la logique qui assigne automatiquement un véhicule à chaque nouvelle réservation créée côté frontoffice :
+   - Cette logique s'exécute automatiquement lors de la création d'une réservation (pas d'interface).
+   - Créer une table associative `reservation_vehicule` avec les colonnes :
+     * `id` (INT, PK, AUTO_INCREMENT)
+     * `id_reservation` (INT, FK vers `reservation`)
+     * `id_vehicule` (INT, FK vers `vehicules`)
+   - Règles de sélection du véhicule :
+     * Règle 1 : Choisir le véhicule dont la capacité est la plus proche du nombre de personnes demandé
+                 (favoriser le véhicule avec le moins d'écart, sans laisser de capacité insuffisante).
+     * Règle 2 : En cas d'égalité de capacité, prioriser le type de carburant : Diesel > Essence > Hybride > Électrique.
+     * Règle 3 : En cas d'égalité de capacité ET de type carburant, sélectionner aléatoirement parmi les véhicules éligibles (seulement entre Diesel et Essence).
+4. **Page 1 — Formulaire de saisie de date** :
+   - Créer un contrôleur avec méthode @GetMapping pour afficher la Page 1.
+   - La page JSP doit permettre de saisir uniquement une **date** (ex: 03/03/2026).
+   - Soumettre via POST vers le contrôleur de Page 2.
+5. **Commiter et pousser** : Commiter les changements, pousser la branche.
+6. **Pull Request** : Faire PR vers `main` pour review par TL.
+
+#### Dev2 (Back-office) : Alexandra ETU003306
+1. **Créer branche** : `feature/backoffice-sprint3-dev2` à partir de `main`.
+2. **Calcul de l'heure de retour à l'aéroport** : Implémenter une méthode utilitaire qui calcule l'heure de retour du véhicule à l'aéroport :
+   - Récupérer la distance totale parcourue (aller vers tous les hôtels + retour à l'aéroport) depuis la table `distance`.
+   - Utiliser la vitesse moyenne du véhicule (`vitesse_moyenne` de la table `vehicules`).
+   - Formule : temps_trajet (h) = total_km / vitesse_moyenne → ajouter à l'heure de départ pour obtenir l'heure de retour.
+3. **Page 2 — Affichage de la traçabilité des véhicules** :
+   - Créer un contrôleur avec méthode @PostMapping pour recevoir la date de la Page 1.
+   - Afficher en en-tête la date saisie (ex: "Traçabilité du 03/03/2026").
+   - Récupérer depuis la base et afficher pour chaque véhicule ayant des réservations à cette date :
+     * Le véhicule (marque, capacité, type carburant, vitesse moyenne).
+     * Toutes les réservations assignées à ce véhicule pour cette date.
+     * Tous les hôtels parcourus par ce véhicule cette date.
+     * Date et heure de départ de l'aéroport (ramassage du 1er client = heure d'arrivée du 1er client à l'aéroport).
+     * Date et heure de retour du véhicule à l'aéroport (calculée après le dernier hôtel).
+4. **Commiter et pousser** : Commiter les changements, pousser la branche.
+5. **Pull Request** : Faire PR vers `main` pour review par TL.
+
+### Notes Générales
+- Utiliser le framework personnalisé (FrontServlet + annotations) pour les routes.
+- Vues : JSP uniquement.
+- Base : MySQL.
+- L'assignation véhicule-réservation (Dev1) se fait automatiquement dans le code backend lors de la création d'une réservation — aucune interface utilisateur n'est nécessaire pour cette logique.
+- Simplification : 1 client = 1 hôtel = 1 véhicule (pas de gestion multi-clients dans un même véhicule ni multi-hôtels).
+- La logique de sélection du véhicule (Dev1) doit être placée dans un SERVICE PARTAGÉ pour que le frontoffice puisse l'appeler lors de la création de réservation.
+- Les deux devs doivent coordonner le nom et la signature des méthodes partagées AVANT de commencer le développement pour éviter les conflits lors du merge.
+- Données de test : s'assurer que la table `distance` contient les trajets Aéroport ↔ Hôtels cohérents avec les hôtels existants (une seule entrée par paire, la bidirectionnalité est gérée côté code).
