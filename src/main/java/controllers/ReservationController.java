@@ -8,6 +8,8 @@ import src.RequestParam;
 
 import dao.HotelDAO;
 import dao.ReservationDAO;
+import dao.TokenDAO;
+import dao.ConfigReader;
 import models.Hotel;
 import models.Reservation;
 
@@ -20,14 +22,26 @@ public class ReservationController {
 
     private HotelDAO hotelDAO = new HotelDAO();
     private ReservationDAO reservationDAO = new ReservationDAO();
+    private TokenDAO tokenDAO = new TokenDAO();
 
     // ==================== FRONT-OFFICE ====================
 
     /**
      * Affiche la liste de toutes les réservations (Front-Office)
+     * Le token est lu depuis application.properties (pas besoin de le passer dans l'URL)
+     * 
+     * Usage: /reservations
      */
     @GetMapping("/reservations")
     public ModelView listReservations() {
+        // Lire le token depuis application.properties
+        String token = ConfigReader.getCurrentToken();
+        
+        // Vérification du token
+        if (!isTokenValid(token)) {
+            return createErrorView(token);
+        }
+        
         ModelView mv = new ModelView("/WEB-INF/views/reservation-list.jsp");
         try {
             List<Reservation> reservations = reservationDAO.findAll();
@@ -40,9 +54,18 @@ public class ReservationController {
 
     /**
      * Filtre les réservations par date d'arrivée (Front-Office)
+     * Le token est lu depuis application.properties
      */
     @GetMapping("/reservations/filter")
     public ModelView filterReservations(@RequestParam("dateArrivee") String dateArrivee) {
+        // Lire le token depuis application.properties
+        String token = ConfigReader.getCurrentToken();
+        
+        // Vérification du token
+        if (!isTokenValid(token)) {
+            return createErrorView(token);
+        }
+        
         ModelView mv = new ModelView("/WEB-INF/views/reservation-list.jsp");
         try {
             List<Reservation> reservations;
@@ -62,6 +85,38 @@ public class ReservationController {
                 // Ignorer
             }
         }
+        return mv;
+    }
+    
+    /**
+     * Vérifie si le token est valide (existe et non expiré)
+     */
+    private boolean isTokenValid(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            return tokenDAO.isValidToken(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Crée une vue d'erreur pour accès non autorisé
+     */
+    private ModelView createErrorView(String token) {
+        ModelView mv = new ModelView("/WEB-INF/views/auth-error.jsp");
+        if (token == null || token.trim().isEmpty()) {
+            mv.addItem("errorTitle", "Token non configuré");
+            mv.addItem("errorMessage", "Aucun token n'est configuré dans application.properties.");
+            mv.addItem("errorDetail", "Exécutez TokenGenerator pour générer un token, ou ajoutez manuellement api.token=VOTRE_TOKEN dans application.properties");
+        } else {
+            mv.addItem("errorTitle", "Token invalide ou expiré");
+            mv.addItem("errorMessage", "Le token configuré dans application.properties n'est pas valide ou a expiré.");
+            mv.addItem("errorDetail", "Exécutez TokenGenerator pour générer un nouveau token valide, ou modifiez api.token dans application.properties");
+        }
+        mv.addItem("providedToken", token);
         return mv;
     }
 

@@ -33,3 +33,4 @@ Application web pour gérer les réservations d'hôtel pour les clients arrivant
 - Intégrer le framework personnalisé dans le projet.
 - Utiliser annotations du framework pour contrôleurs.
 - Déploiements : Local (staging), puis Render (release).
+

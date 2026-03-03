@@ -14,29 +14,27 @@ import java.util.Map;
 public class TokenController {
 
     private TokenDAO tokenDAO = new TokenDAO();
+    private static final int DEFAULT_EXPIRATION_HOURS = 24;
 
     /**
-     * Génère un token aléatoire et l'insère en base avec expiration de 2 heures
-     * Retourne le token en JSON
+     * Génère un token aléatoire et l'insère en base avec expiration de 24 heures
+     * Retourne le token en JSON : {"token": "...", "expires_in_hours": 24}
+     * Endpoint: GET /tokens/create
      */
-    @GetMapping("/generate-token")
+    @GetMapping("/tokens/create")
     @Json
     public Map<String, Object> generateToken() {
         Map<String, Object> response = new HashMap<>();
         try {
-            Token token = tokenDAO.generateAndInsertToken(2); // Expiration 2 heures
+            Token token = tokenDAO.generateAndInsertToken(DEFAULT_EXPIRATION_HOURS);
             if (token != null) {
-                response.put("success", true);
                 response.put("token", token.getToken());
-                response.put("id", token.getId());
-                response.put("expiration", token.getHeureExpiration().toString());
+                response.put("expires_in_hours", DEFAULT_EXPIRATION_HOURS);
             } else {
-                response.put("success", false);
-                response.put("message", "Erreur lors de la génération du token");
+                response.put("error", "Erreur lors de la génération du token");
             }
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Erreur: " + e.getMessage());
+            response.put("error", "Erreur: " + e.getMessage());
         }
         return response;
     }
