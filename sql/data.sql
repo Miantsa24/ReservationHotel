@@ -33,6 +33,16 @@ INSERT INTO reservations (id, hotel_id, date_arrivee, heure_arrivee, nombre_pers
 -- =============================================
 -- Vérification des données insérées
 -- =============================================
+-- Insertion des distances (une seule entrée par paire, bidirectionnalité gérée côté code)
+-- =============================================
+INSERT INTO distance (id, `from`, `to`, km) VALUES
+(1, 'Aéroport', 'Colbert', 15.00),
+(2, 'Aéroport', 'Novotel', 22.50),
+(3, 'Aéroport', 'Ibis', 10.00);
+
+-- =============================================
+-- Vérification des données insérées
+-- =============================================
 SELECT * FROM hotels ORDER BY id;
 
 SELECT 
