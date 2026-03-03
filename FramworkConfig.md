@@ -10,3 +10,13 @@ winget install --id Git.Git -e --source winget
 Pour que Git soit accessible dans le terminal, il faut rafraîchir le PATH. Laissez-moi ouvrir un nouveau terminal et ajouter votre framework :
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User"); cd d:\Hotel; git submodule add https://github.com/Miantsa24/SPRINT1.git framework  (ovaina Pseudo sy anaranle repository anle framework)
+
+
+redeployer
+mvn package -DskipTests
+
+
+regenerer token 
+mvn compile
+mvn exec:java -Dexec.mainClass=dao.TokenGenerator
+mvn package -DskipTests
