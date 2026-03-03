@@ -12,6 +12,8 @@ import dao.TokenDAO;
 import dao.ConfigReader;
 import models.Hotel;
 import models.Reservation;
+import models.Vehicule;
+import service.VehiculeSelectionService;
 
 import java.sql.Date;
 import java.sql.Time;
@@ -23,6 +25,7 @@ public class ReservationController {
     private HotelDAO hotelDAO = new HotelDAO();
     private ReservationDAO reservationDAO = new ReservationDAO();
     private TokenDAO tokenDAO = new TokenDAO();
+    private VehiculeSelectionService vehiculeSelectionService = new VehiculeSelectionService();
 
     // ==================== FRONT-OFFICE ====================
 
@@ -159,7 +162,19 @@ public class ReservationController {
             // Sauvegarde en base
             reservationDAO.save(reservation);
 
-            mv.addItem("success", "Réservation enregistrée avec succès ! (ID: " + reservation.getId() + ")");
+            // Assignation automatique d'un véhicule
+            Vehicule vehiculeAssigne = vehiculeSelectionService.assignerVehicule(
+                reservation.getId(), reservation.getNombrePersonnes());
+
+            String successMsg = "Réservation enregistrée avec succès ! (ID: " + reservation.getId() + ")";
+            if (vehiculeAssigne != null) {
+                successMsg += " — Véhicule assigné : " + vehiculeAssigne.getMarque() 
+                    + " (capacité: " + vehiculeAssigne.getCapacite() 
+                    + ", carburant: " + vehiculeAssigne.getTypeCarburant() + ")";
+            } else {
+                successMsg += " — Aucun véhicule disponible pour " + reservation.getNombrePersonnes() + " personnes.";
+            }
+            mv.addItem("success", successMsg);
             
             // Recharger les hôtels pour le formulaire
             List<Hotel> hotels = hotelDAO.findAll();

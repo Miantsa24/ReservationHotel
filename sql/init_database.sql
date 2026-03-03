@@ -48,4 +48,26 @@ CREATE TABLE IF NOT EXISTS tokens (
     heure_expiration DATETIME NOT NULL
 );
 
+-- =============================================
+-- Table des distances entre lieux
+-- (une seule entrée par paire, la bidirectionnalité est gérée côté code)
+-- =============================================
+CREATE TABLE IF NOT EXISTS distance (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    `from` VARCHAR(100) NOT NULL,
+    `to` VARCHAR(100) NOT NULL,
+    km DECIMAL(10,2) NOT NULL
+);
+
+-- =============================================
+-- Table associative réservation-véhicule
+-- =============================================
+CREATE TABLE IF NOT EXISTS reservation_vehicule (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    id_reservation INT NOT NULL,
+    id_vehicule INT NOT NULL,
+    FOREIGN KEY (id_reservation) REFERENCES reservations(id) ON DELETE CASCADE,
+    FOREIGN KEY (id_vehicule) REFERENCES vehicules(id) ON DELETE CASCADE
+);
+
 

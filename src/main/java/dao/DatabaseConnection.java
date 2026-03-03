@@ -79,14 +79,6 @@ public class DatabaseConnection {
                     tempsAttente INT
                 ) ENGINE=InnoDB;
             """);
-            // ajouter quelques véhicules de démonstration si la table est vide
-            try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM vehicules")) {
-                if (rs.next() && rs.getInt(1) == 0) {
-                    stmt.executeUpdate("INSERT INTO vehicules (marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente) VALUES ('Toyota', 4, 'Essence', 120.5, 10)");
-                    stmt.executeUpdate("INSERT INTO vehicules (marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente) VALUES ('Renault', 2, 'Diesel', 100.0, 5)");
-                    stmt.executeUpdate("INSERT INTO vehicules (marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente) VALUES ('Tesla', 5, 'Electrique', 150.0, 2)");
-                }
-            }
             // tokens
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS tokens (
@@ -103,6 +95,25 @@ public class DatabaseConnection {
                     stmt.executeUpdate("INSERT INTO tokens (token, heure_expiration) VALUES ('" + sample + "', '" + exp + "')");
                 }
             }
+            // distance
+            stmt.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS distance (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    `from` VARCHAR(100) NOT NULL,
+                    `to` VARCHAR(100) NOT NULL,
+                    km DECIMAL(10,2) NOT NULL
+                ) ENGINE=InnoDB;
+            """);
+            // reservation_vehicule
+            stmt.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS reservation_vehicule (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_reservation INT NOT NULL,
+                    id_vehicule INT NOT NULL,
+                    FOREIGN KEY (id_reservation) REFERENCES reservations(id) ON DELETE CASCADE,
+                    FOREIGN KEY (id_vehicule) REFERENCES vehicules(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+            """);
         }
     }
     public static void closeConnection() {
