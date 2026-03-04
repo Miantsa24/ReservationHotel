@@ -10,7 +10,7 @@ public class Vehicule {
     private String typeCarburant;
     private BigDecimal vitesseMoyenne;
     private int tempsAttente;
-    // Quand le véhicule redevient disponible au dépôt (aéroport)
+    // Quand le véhicule redevient disponible au dépôt (aéroportt)
     private Timestamp availableFrom;
 
     // Constructeurs
