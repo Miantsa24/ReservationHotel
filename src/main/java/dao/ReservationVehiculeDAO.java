@@ -1,6 +1,7 @@
 package dao;
 
 import models.ReservationVehicule;
+import models.Reservation;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,11 +68,104 @@ public class ReservationVehiculeDAO {
         return list;
     }
 
+    /**
+     * Récupère les réservations (objets Reservation) assignées à un véhicule pour une date donnée.
+     */
+    public List<Reservation> findReservationsByVehiculeAndDate(int idVehicule, Date date) throws SQLException {
+        List<Reservation> list = new ArrayList<>();
+        String sql = "SELECT r.*, h.nom as hotel_nom " +
+                     "FROM reservation_vehicule rv " +
+                     "JOIN reservations r ON rv.id_reservation = r.id " +
+                     "LEFT JOIN hotels h ON r.hotel_id = h.id " +
+                     "WHERE rv.id_vehicule = ? AND r.date_arrivee = ? " +
+                     "ORDER BY r.heure_arrivee";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, idVehicule);
+            stmt.setDate(2, date);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapReservationResultSet(rs));
+                }
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Calcule la capacité déjà occupée sur un véhicule pour une date+heure précise.
+     * Retourne la somme des `nombre_personnes` des réservations assignées.
+     */
+    public int getOccupiedCapacityForDateTime(int idVehicule, Date date, Time time) throws SQLException {
+        String sql = "SELECT SUM(r.nombre_personnes) as total " +
+                     "FROM reservation_vehicule rv " +
+                     "JOIN reservations r ON rv.id_reservation = r.id " +
+                     "WHERE rv.id_vehicule = ? AND r.date_arrivee = ? AND r.heure_arrivee = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, idVehicule);
+            stmt.setDate(2, date);
+            stmt.setTime(3, time);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("total");
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Calcule la capacité occupée pour un véhicule sur une date (toutes heures confondues).
+     */
+    public int getOccupiedCapacityForDate(int idVehicule, Date date) throws SQLException {
+        String sql = "SELECT SUM(r.nombre_personnes) as total " +
+                     "FROM reservation_vehicule rv " +
+                     "JOIN reservations r ON rv.id_reservation = r.id " +
+                     "WHERE rv.id_vehicule = ? AND r.date_arrivee = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, idVehicule);
+            stmt.setDate(2, date);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("total");
+                }
+            }
+        }
+        return 0;
+    }
+
     private ReservationVehicule mapResultSet(ResultSet rs) throws SQLException {
         ReservationVehicule rv = new ReservationVehicule();
         rv.setId(rs.getInt("id"));
         rv.setIdReservation(rs.getInt("id_reservation"));
         rv.setIdVehicule(rs.getInt("id_vehicule"));
         return rv;
+    }
+
+    private Reservation mapReservationResultSet(ResultSet rs) throws SQLException {
+        Reservation r = new Reservation();
+        r.setId(rs.getInt("id"));
+        r.setHotelId(rs.getInt("hotel_id"));
+        r.setDateArrivee(rs.getDate("date_arrivee"));
+        r.setHeureArrivee(rs.getTime("heure_arrivee"));
+        r.setNombrePersonnes(rs.getInt("nombre_personnes"));
+        r.setRefClient(rs.getString("ref_client"));
+        try {
+            r.setHotelNom(rs.getString("hotel_nom"));
+        } catch (SQLException e) {
+            // ignore if not present
+        }
+        return r;
     }
 }

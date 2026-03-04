@@ -284,7 +284,10 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="app-layout">
+        <%@ include file="includes/sidebar.jsp" %>
+        <div class="main-content">
+            <div class="container">
         <h1>🚐 Traçabilité des Véhicules</h1>
         <div class="date-header">📅 Traçabilité du <strong><%= request.getAttribute("date") %></strong></div>
 
@@ -376,6 +379,6 @@
         <div class="footer">
             <a href="<%= request.getContextPath() %>/tracabilite" class="back-link">⬅ Retour</a>
         </div>
-    </div>
-</body>
+        </div>
+    </body>
 </html>
