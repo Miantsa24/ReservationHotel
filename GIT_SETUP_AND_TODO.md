@@ -220,6 +220,7 @@
 4. Une fois staging OK : Merger vers `release`, déployer sur Render.
 
 #### Dev1 (Back-office) : Alexandra ETU003306
+**Créer branche** : `feature/backoffice-sprint4-dev1` à partir de `main`.
 1. **Design & DB** : Proposer la migration SQL si nécessaire (ex: `ALTER TABLE vehicules ADD COLUMN available_from DATETIME NULL`).
 2. **DAOs** : Mettre à jour `ReservationVehiculeDAO` et `VehiculeDAO` :
    - Méthode pour récupérer réservations d'un véhicule sur une date donnée.
@@ -235,6 +236,7 @@
 6. **Tests** : Écrire tests unitaires pour la nouvelle logique d'assignation multi-réservations.
 
 #### Dev2 (Back-office) : Tojo ETU003362
+**Créer branche** : `feature/backoffice-sprint4-dev2` à partir de `main`.
 1. **Disponibilité véhicules** : Implémenter mise à jour de `available_from` après assignation (utiliser `TracabiliteService.calculerHeureRetour`).
 2. **Routing (ordre hôtels)** : Implémenter utilitaire pour ordonner les hôtels d'un véhicule :
    - Démarrer par l'hôtel le plus proche de l'aéroport.
