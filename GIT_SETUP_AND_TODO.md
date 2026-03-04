@@ -192,3 +192,69 @@
 - La logique de sélection du véhicule (Dev1) doit être placée dans un SERVICE PARTAGÉ pour que le frontoffice puisse l'appeler lors de la création de réservation.
 - Les deux devs doivent coordonner le nom et la signature des méthodes partagées AVANT de commencer le développement pour éviter les conflits lors du merge.
 - Données de test : s'assurer que la table `distance` contient les trajets Aéroport ↔ Hôtels cohérents avec les hôtels existants (une seule entrée par paire, la bidirectionnalité est gérée côté code).
+
+
+## Rôles:
+- **Sprint 4:**
+   Team Lead : Malala ETU003211
+   Dev 1 (BackOffice) : Alexandra ETU003306
+   Dev 2 (BackOffice) : Tojo ETU003362
+
+## Todo List pour Sprint 4
+
+### Rôles et Responsabilités
+- **TL (Team Lead)** : Code reviews, assignation des tâches, création du todo list, merges, déploiements.
+- **Dev1 (Back-office)** : Implémentation partie assignation multi-réservations, DAO, services et tests.
+- **Dev2 (Back-office)** : Implémentation disponibilité véhicules, algorithme d'ordonnancement d'hôtels (routing) et intégration contrôleurs/JSP.
+
+### Tâches pour Sprint 4
+
+#### TL (Team Lead) : Malala ETU003211
+1. Assigner les tâches aux devs via le todo list dans `GIT_SETUP_AND_TODO.md`.
+2. Vérifier et valider les propositions d'architecture (champ `available_from` ou équivalent, ordering algorithm).
+3. Après réception des PR des devs :
+   - Faire code review.
+   - Si OK : Merger vers `main`, puis vers `staging`.
+   - Déployer localement (tester l'application).
+   - Si erreurs : Demander aux devs de créer une branche `fix/[nom]` et refaire PR.
+4. Une fois staging OK : Merger vers `release`, déployer sur Render.
+
+#### Dev1 (Back-office) : Alexandra ETU003306
+1. **Design & DB** : Proposer la migration SQL si nécessaire (ex: `ALTER TABLE vehicules ADD COLUMN available_from DATETIME NULL`).
+2. **DAOs** : Mettre à jour `ReservationVehiculeDAO` et `VehiculeDAO` :
+   - Méthode pour récupérer réservations d'un véhicule sur une date donnée.
+   - Méthode pour calculer capacité occupée par véhicule pour une date/heure.
+   - Lecture/écriture du champ disponibilité (`available_from`).
+3. **Selection Service** : Étendre `VehiculeSelectionService` pour :
+   - Autoriser plusieurs réservations par véhicule si capacité libre suffisante.
+   - Calculer capacité libre = `capacité_véhicule - sum(capacités réservations assignées pour la même date+heure)`.
+   - Prioriser traitement des réservations par ordre descendant `nombrePersonnes`.
+   - Respecter règles existantes (carburant, aléatoire) pour départager véhicules.
+4. **Validation réservation** : Retourner un message d'erreur clair si aucune allocation possible.
+5. **Tests** : Écrire tests unitaires pour la nouvelle logique d'assignation multi-réservations.
+
+#### Dev2 (Back-office) : Tojo ETU003362
+1. **Disponibilité véhicules** : Implémenter mise à jour de `available_from` après assignation (utiliser `TracabiliteService.calculerHeureRetour`).
+2. **Routing (ordre hôtels)** : Implémenter utilitaire pour ordonner les hôtels d'un véhicule :
+   - Démarrer par l'hôtel le plus proche de l'aéroport.
+   - Ensuite partir vers l'hôtel le plus proche du précédent (algorithme nearest-neighbour utilisant la table `distance`).
+3. **Disponibilité à la réservation** : Filtrer véhicules éligibles selon `available_from` (doit être <= date+heure de la nouvelle réservation ou NULL).
+4. **Controllers / UI** : Mettre à jour la création de réservation pour gérer le rejet/acceptation et afficher message utilisateur.
+5. **Tests d'intégration** : Scénarios multi-réservations (ex: 2 clients même date+heure), scénario véhicule occupé.
+
+### Notes et critères d'acceptation
+- Un véhicule peut transporter plusieurs réservations si la capacité cumulée de ces réservations <= capacité du véhicule.
+- La réservation avec le plus grand `nombrePersonnes` est assignée en priorité.
+- Un véhicule est considéré non disponible tant qu'il n'est pas revenu à l'aéroport (`available_from` > dateDemande).
+- Si aucune allocation possible, la création de réservation doit échouer avec un message d'erreur explicite.
+
+### Données de test recommandées
+- Distances : s'assurer que `distance` contient `Aéroport ↔ Colbert = 15` et autres trajets nécessaires.
+- Scénarios :
+  * Client A (2 pers, 2026-03-04 10:00), Client B (3 pers, 2026-03-04 10:00) → vérifier assignation au même véhicule si capa OK.
+  * Véhicule occupé (available_from après demande) → nouvelle réservation rejetée pour ce véhicule.
+
+### Commits / PR
+- Commits atomiques par fonctionnalité.
+- Ouvrir PR vers `main` une fois testé et demander review du TL et de l'autre dev.
+
