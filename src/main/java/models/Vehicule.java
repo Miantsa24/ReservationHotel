@@ -1,7 +1,6 @@
 package models;
 
 import java.math.BigDecimal;
-import java.sql.Timestamp;
 
 public class Vehicule {
     private int id;
@@ -10,8 +9,6 @@ public class Vehicule {
     private String typeCarburant;
     private BigDecimal vitesseMoyenne;
     private int tempsAttente;
-    // Quand le véhicule redevient disponible au dépôt (aéroport)
-    private Timestamp availableFrom;
 
     // Constructeurs
     public Vehicule() {}
@@ -43,7 +40,4 @@ public class Vehicule {
 
     public int getTempsAttente() { return tempsAttente; }
     public void setTempsAttente(int tempsAttente) { this.tempsAttente = tempsAttente; }
-
-    public Timestamp getAvailableFrom() { return availableFrom; }
-    public void setAvailableFrom(Timestamp availableFrom) { this.availableFrom = availableFrom; }
 }

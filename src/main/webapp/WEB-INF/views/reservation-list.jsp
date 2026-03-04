@@ -307,10 +307,7 @@
     </style>
 </head>
 <body>
-    <div class="app-layout">
-        <%@ include file="includes/sidebar.jsp" %>
-        <div class="main-content">
-            <div class="container">
+    <div class="container">
         <h1>🏨 Liste des Réservations</h1>
         
         <div class="nav-links">
@@ -384,8 +381,6 @@
                 </p>
             </div>
             <% } %>
-        </div>
-            </div>
         </div>
     </div>
 </body>

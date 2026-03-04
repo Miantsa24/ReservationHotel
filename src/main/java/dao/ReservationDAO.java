@@ -66,29 +66,6 @@ public class ReservationDAO {
         return reservations;
     }
 
-    public Reservation findById(int id) throws SQLException {
-        String sql = "SELECT r.*, h.nom as hotel_nom FROM reservations r LEFT JOIN hotels h ON r.hotel_id = h.id WHERE r.id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, id);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return mapResultSet(rs);
-                }
-            }
-        }
-        return null;
-    }
-
-    public void delete(int id) throws SQLException {
-        String sql = "DELETE FROM reservations WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, id);
-            stmt.executeUpdate();
-        }
-    }
-
     private Reservation mapResultSet(ResultSet rs) throws SQLException {
         Reservation reservation = new Reservation();
         reservation.setId(rs.getInt("id"));

@@ -14,10 +14,7 @@
     </style>
 </head>
 <body>
-    <div class="app-layout">
-        <%@ include file="includes/sidebar.jsp" %>
-        <div class="main-content">
-            <div class="container">
+<div class="container">
     <h1>Véhicules (API protégée)</h1>
     <div>
         <label for="token">Token :</label>
@@ -37,9 +34,7 @@
         </thead>
         <tbody></tbody>
     </table>
-            </div>
-        </div>
-    </div>
+</div>
 <script>
     function loadVehicules() {
         document.getElementById('message').textContent = '';

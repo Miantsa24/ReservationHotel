@@ -175,10 +175,7 @@
     </style>
 </head>
 <body>
-    <div class="app-layout">
-        <%@ include file="includes/sidebar.jsp" %>
-        <div class="main-content">
-            <div class="container">
+    <div class="container">
         <h1>🏨 Nouvelle Réservation</h1>
         
         <% if (request.getAttribute("success") != null) { %>
@@ -237,8 +234,6 @@
             
             <button type="submit">📝 Enregistrer la réservation</button>
         </form>
-            </div>
-        </div>
     </div>
 </body>
 </html>

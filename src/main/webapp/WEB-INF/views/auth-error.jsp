@@ -179,10 +179,7 @@
     </style>
 </head>
 <body>
-    <div class="app-layout" style="align-items:flex-start;">
-        <%@ include file="includes/sidebar.jsp" %>
-        <div class="main-content">
-            <div class="error-container">
+    <div class="error-container">
         <div class="error-header">
             <span class="status-code">401</span>
             <div class="error-icon">🔒</div>
@@ -215,7 +212,6 @@
                 <a href="tokens/create" class="btn btn-primary">Générer un Token</a>
                 <a href="vehicules" class="btn btn-secondary">Retour à l'accueil</a>
             </div>
-</div>
         </div>
     </div>
 </body>
