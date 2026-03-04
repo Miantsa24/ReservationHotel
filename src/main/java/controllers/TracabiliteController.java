@@ -6,8 +6,29 @@ import src.PostMapping;
 import src.ModelView;
 import src.RequestParam;
 
+import dao.ReservationDAO;
+import dao.ReservationVehiculeDAO;
+import dao.VehiculeDAO;
+import dao.HotelDAO;
+import models.Reservation;
+import models.ReservationVehicule;
+import models.Vehicule;
+import models.Hotel;
+import models.VehiculeTracabilite;
+import service.TracabiliteService;
+
+import java.sql.Date;
+import java.sql.SQLException;
+import java.util.*;
+
 @Controller
 public class TracabiliteController {
+
+    private ReservationDAO reservationDAO = new ReservationDAO();
+    private ReservationVehiculeDAO reservationVehiculeDAO = new ReservationVehiculeDAO();
+    private VehiculeDAO vehiculeDAO = new VehiculeDAO();
+    private HotelDAO hotelDAO = new HotelDAO();
+    private TracabiliteService tracabiliteService = new TracabiliteService();
 
     /**
      * Page 1 — Affiche le formulaire de saisie de date
@@ -18,13 +39,80 @@ public class TracabiliteController {
     }
 
     /**
-     * Reçoit la date de Page 1 et redirige vers Page 2 (résultats)
-     * Page 2 sera implémentée par Dev2
+     * Page 2 — Affiche la traçabilité des véhicules pour la date saisie.
+     * Pour chaque véhicule ayant des réservations à cette date :
+     *   - infos véhicule (marque, capacité, carburant, vitesse)
+     *   - réservations assignées
+     *   - hôtels parcourus
+     *   - heure de départ et heure de retour à l'aéroport
      */
     @PostMapping("/tracabilite/resultat")
     public ModelView showResultat(@RequestParam("date") String date) {
         ModelView mv = new ModelView("/WEB-INF/views/tracabilite-resultat.jsp");
         mv.addItem("date", date);
+
+        try {
+            Date dateSql = Date.valueOf(date); // format yyyy-MM-dd
+            List<Reservation> reservations = reservationDAO.findByDateArrivee(dateSql);
+
+            // Grouper les réservations par véhicule
+            Map<Integer, List<Reservation>> parVehicule = new LinkedHashMap<>();
+
+            for (Reservation r : reservations) {
+                ReservationVehicule rv = reservationVehiculeDAO.findByReservationId(r.getId());
+                if (rv != null) {
+                    int idVehicule = rv.getIdVehicule();
+                    if (!parVehicule.containsKey(idVehicule)) {
+                        parVehicule.put(idVehicule, new ArrayList<>());
+                    }
+                    parVehicule.get(idVehicule).add(r);
+                }
+            }
+
+            // Construire la liste de VehiculeTracabilite
+            List<VehiculeTracabilite> tracabilites = new ArrayList<>();
+
+            for (Map.Entry<Integer, List<Reservation>> entry : parVehicule.entrySet()) {
+                int idVehicule = entry.getKey();
+                List<Reservation> resasVehicule = entry.getValue();
+
+                Vehicule vehicule = vehiculeDAO.findById(idVehicule);
+                if (vehicule == null) continue;
+
+                VehiculeTracabilite vt = new VehiculeTracabilite();
+                vt.setVehicule(vehicule);
+                vt.setReservations(resasVehicule);
+
+                // Collecter les hôtels parcourus (sans doublons)
+                List<String> hotels = new ArrayList<>();
+                for (Reservation r : resasVehicule) {
+                    String nomHotel = r.getHotelNom();
+                    if (nomHotel == null) {
+                        Hotel h = hotelDAO.findById(r.getHotelId());
+                        if (h != null) nomHotel = h.getNom();
+                    }
+                    if (nomHotel != null && !hotels.contains(nomHotel)) {
+                        hotels.add(nomHotel);
+                    }
+                }
+                vt.setHotels(hotels);
+
+                // Heure de départ et de retour
+                vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));
+                vt.setHeureRetour(tracabiliteService.calculerHeureRetour(vehicule, resasVehicule));
+                vt.setDistanceTotale(tracabiliteService.calculerDistanceTotale(resasVehicule));
+
+                tracabilites.add(vt);
+            }
+
+            mv.addItem("tracabilites", tracabilites);
+            mv.addItem("totalVehicules", tracabilites.size());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            mv.addItem("error", "Erreur lors du chargement : " + e.getMessage());
+        }
+
         return mv;
     }
 }
