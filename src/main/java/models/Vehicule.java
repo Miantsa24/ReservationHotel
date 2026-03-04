@@ -23,6 +23,7 @@ public class Vehicule {
         this.typeCarburant = typeCarburant;
         this.vitesseMoyenne = vitesseMoyenne;
         this.tempsAttente = tempsAttente;
+        this.availableFrom = new Timestamp(System.currentTimeMillis()); // disponible immédiatement par défaut
     }
 
     // Getters et Setters
