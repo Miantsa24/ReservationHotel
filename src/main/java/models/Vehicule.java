@@ -15,14 +15,14 @@ public class Vehicule {
     // Constructeurs
     public Vehicule() {}
 
-    public Vehicule(int id, String marque, int capacite, String typeCarburant, BigDecimal vitesseMoyenne, int tempsAttente, Timestamp availableFrom) {
+    public Vehicule(int id, String marque, int capacite, String typeCarburant, BigDecimal vitesseMoyenne, int tempsAttente) {
         this.id = id;
         this.marque = marque;
         this.capacite = capacite;
         this.typeCarburant = typeCarburant;
         this.vitesseMoyenne = vitesseMoyenne;
         this.tempsAttente = tempsAttente;
-        this.availableFrom = availableFrom;
+        this.availableFrom = new Timestamp(System.currentTimeMillis());
     }
 
     // Getters et Setters
