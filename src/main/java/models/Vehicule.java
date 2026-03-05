@@ -1,6 +1,7 @@
 package models;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 
 public class Vehicule {
     private int id;
@@ -9,18 +10,19 @@ public class Vehicule {
     private String typeCarburant;
     private BigDecimal vitesseMoyenne;
     private int tempsAttente;
+    private Timestamp availableFrom;
 
     // Constructeurs
     public Vehicule() {}
 
-    public Vehicule(int id, String marque, int capacite, String typeCarburant, BigDecimal vitesseMoyenne, int tempsAttente) {
+    public Vehicule(int id, String marque, int capacite, String typeCarburant, BigDecimal vitesseMoyenne, int tempsAttente, Timestamp availableFrom) {
         this.id = id;
         this.marque = marque;
         this.capacite = capacite;
         this.typeCarburant = typeCarburant;
         this.vitesseMoyenne = vitesseMoyenne;
         this.tempsAttente = tempsAttente;
-        this.availableFrom = new Timestamp(System.currentTimeMillis()); // disponible immédiatement par défaut
+        this.availableFrom = availableFrom;
     }
 
     // Getters et Setters
