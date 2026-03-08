@@ -16,6 +16,7 @@ import models.Vehicule;
 import models.Hotel;
 import models.VehiculeTracabilite;
 import service.TracabiliteService;
+import service.HotelRoutingService;
 
 import java.sql.Date;
 import java.sql.SQLException;
@@ -29,6 +30,7 @@ public class TracabiliteController {
     private VehiculeDAO vehiculeDAO = new VehiculeDAO();
     private HotelDAO hotelDAO = new HotelDAO();
     private TracabiliteService tracabiliteService = new TracabiliteService();
+    private HotelRoutingService hotelRoutingService = new HotelRoutingService();
 
     /**
      * Page 1 — Affiche le formulaire de saisie de date
@@ -95,7 +97,18 @@ public class TracabiliteController {
                         hotels.add(nomHotel);
                     }
                 }
-                vt.setHotels(hotels);
+
+                // Ordonner les hôtels selon l'algorithme nearest-neighbour
+                List<String> hotelsOrdonnes = hotelRoutingService.ordonnerHotels(hotels);
+                vt.setHotels(hotelsOrdonnes);
+
+                // Construire la chaîne de parcours : Aéroport -> H1 -> H2 -> Aéroport
+                StringBuilder sb = new StringBuilder("Aéroport");
+                for (String hname : hotelsOrdonnes) {
+                    sb.append(" -> ").append(hname);
+                }
+                sb.append(" -> Aéroport");
+                vt.setParcours(sb.toString());
 
                 // Heure de départ et de retour
                 vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));

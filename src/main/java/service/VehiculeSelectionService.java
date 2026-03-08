@@ -1,6 +1,7 @@
 package service;
 
 import dao.VehiculeDAO;
+import service.TracabiliteService;
 import dao.ReservationVehiculeDAO;
 import dao.ReservationDAO;
 import models.Vehicule;
@@ -20,6 +21,7 @@ public class VehiculeSelectionService {
     private VehiculeDAO vehiculeDAO = new VehiculeDAO();
     private ReservationVehiculeDAO reservationVehiculeDAO = new ReservationVehiculeDAO();
     private ReservationDAO reservationDAO = new ReservationDAO();
+    private TracabiliteService tracabiliteService = new TracabiliteService();
 
     // Priorité carburant : Diesel > Essence > Hybride > Électrique
     private static final Map<String, Integer> PRIORITE_CARBURANT = new HashMap<>();
@@ -54,6 +56,53 @@ public class VehiculeSelectionService {
         if (vehicule != null) {
             ReservationVehicule rv = new ReservationVehicule(idReservation, vehicule.getId());
             reservationVehiculeDAO.save(rv);
+
+            // Mettre à jour available_from du véhicule :
+            // - si le véhicule est désormais plein pour la date, ou
+            // - si la réservation donnée atteint/le dépasse le seuil d'attente (maxPickup + tempsAttente),
+            //   auquel cas le véhicule va partir et doit être marqué indisponible jusqu'au retour.
+            try {
+                List<Reservation> resasVehicule = reservationVehiculeDAO.findReservationsByVehiculeAndDate(vehicule.getId(), reservation.getDateArrivee());
+
+                int occupiedForDate = reservationVehiculeDAO.getOccupiedCapacityForDate(vehicule.getId(), reservation.getDateArrivee());
+
+                // compute last assigned pickup time
+                java.sql.Time maxTime = null;
+                for (Reservation ar : resasVehicule) {
+                    if (maxTime == null || ar.getHeureArrivee().after(maxTime)) {
+                        maxTime = ar.getHeureArrivee();
+                    }
+                }
+
+                boolean shouldSetAvailableFrom = false;
+
+                if (occupiedForDate >= vehicule.getCapacite()) {
+                    shouldSetAvailableFrom = true;
+                } else if (maxTime != null) {
+                    java.time.LocalDate dateLocal = reservation.getDateArrivee().toLocalDate();
+                    java.time.LocalTime maxLocal = maxTime.toLocalTime();
+                    java.time.LocalDateTime allowedLocal = java.time.LocalDateTime.of(dateLocal, maxLocal).plusMinutes(vehicule.getTempsAttente());
+                    java.sql.Timestamp allowedTs = java.sql.Timestamp.valueOf(allowedLocal);
+                    java.sql.Timestamp reservationTs = new java.sql.Timestamp(reservation.getDateArrivee().getTime() + reservation.getHeureArrivee().getTime());
+                    if (!reservationTs.before(allowedTs)) { // reservationTs >= allowedTs
+                        shouldSetAvailableFrom = true;
+                    }
+                }
+
+                if (shouldSetAvailableFrom) {
+                    java.sql.Time heureRetour = tracabiliteService.calculerHeureRetour(vehicule, resasVehicule);
+                    if (heureRetour != null) {
+                        java.time.LocalDate dateLocal = reservation.getDateArrivee().toLocalDate();
+                        java.time.LocalTime timeLocal = heureRetour.toLocalTime();
+                        java.time.LocalDateTime ldt = java.time.LocalDateTime.of(dateLocal, timeLocal);
+                        java.sql.Timestamp ts = java.sql.Timestamp.valueOf(ldt);
+                        vehiculeDAO.updateAvailableFrom(vehicule.getId(), ts);
+                    }
+                }
+            } catch (Exception e) {
+                // Ne pas casser le flux d'assignation si l'update échoue; log minimal
+                System.err.println("Warning: failed to update available_from for vehicule " + vehicule.getId() + ": " + e.getMessage());
+            }
         }
         return vehicule;
     }
@@ -138,18 +187,51 @@ public class VehiculeSelectionService {
         int personnes = reservation.getNombrePersonnes();
 
         // Filtrer par disponibilité (available_from == null OR <= reservation datetime)
+        // Et prendre en compte le dernier horaire assigné + tempsAttente : si la réservation
+        // arrive après ce seuil, le véhicule est considéré parti pour cette date.
         List<Vehicule> candidats = new ArrayList<>();
+        java.sql.Timestamp reservationTs = new java.sql.Timestamp(date.getTime() + time.getTime());
         for (Vehicule v : tous) {
             java.sql.Timestamp av = v.getAvailableFrom();
-            if (av == null) {
-                candidats.add(v);
-            } else {
-                // construir datetime from date+time
-                java.sql.Timestamp reservationTs = new java.sql.Timestamp(
-                        date.getTime() + time.getTime());
+            if (av != null) {
+                // vehicle has a hard available_from set -> check against reservation datetime
                 if (!av.after(reservationTs)) { // av <= reservationTs
                     candidats.add(v);
                 }
+                continue;
+            }
+
+            // No available_from set: check assigned reservations for that date
+            List<Reservation> assigned = reservationVehiculeDAO.findReservationsByVehiculeAndDate(v.getId(), date);
+            if (assigned == null || assigned.isEmpty()) {
+                // no assignments yet -> candidate
+                candidats.add(v);
+                continue;
+            }
+
+            // compute last assigned pickup time
+            java.sql.Time maxTime = null;
+            for (Reservation ar : assigned) {
+                if (maxTime == null || ar.getHeureArrivee().after(maxTime)) {
+                    maxTime = ar.getHeureArrivee();
+                }
+            }
+
+            if (maxTime == null) {
+                candidats.add(v);
+                continue;
+            }
+
+            // allowed latest pickup = maxTime + tempsAttente (minutes)
+            java.time.LocalDate dateLocal = date.toLocalDate();
+            java.time.LocalTime maxLocal = maxTime.toLocalTime();
+            java.time.LocalDateTime allowedLocal = java.time.LocalDateTime.of(dateLocal, maxLocal).plusMinutes(v.getTempsAttente());
+            java.sql.Timestamp allowedTs = java.sql.Timestamp.valueOf(allowedLocal);
+
+            // If the requested reservation time is before or equal to allowedTs, candidate.
+            // If it's after allowedTs, vehicle would have left before this pickup.
+            if (!reservationTs.after(allowedTs)) {
+                candidats.add(v);
             }
         }
 

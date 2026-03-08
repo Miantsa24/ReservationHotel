@@ -13,7 +13,11 @@ INSERT INTO hotels (id, nom, code) VALUES
 (1, 'Colbert', 'COL'),
 (2, 'Novotel', 'NOV'),
 (3, 'Ibis', 'IBI'),
-(4, 'Lokanga', 'LOK');
+(4, 'Lokanga', 'LOK'),
+(5, 'Trano', 'TRN');
+
+
+INSERT INTO hotels (id, nom, code) VALUES(5, 'Trano', 'TRN');
 
 -- =============================================
 -- Insertion des réservations depuis l'image
@@ -35,10 +39,22 @@ INSERT INTO reservations (id, hotel_id, date_arrivee, heure_arrivee, nombre_pers
 -- =============================================
 -- Insertion des distances (une seule entrée par paire, bidirectionnalité gérée côté code)
 -- =============================================
-INSERT INTO distance (id, `from`, `to`, km) VALUES
-(1, 'Aéroport', 'Colbert', 15.00),
-(2, 'Aéroport', 'Novotel', 22.50),
-(3, 'Aéroport', 'Ibis', 10.00);
+INSERT INTO distance (`from`, `to`, km) VALUES
+   ('Aéroport', 'Colbert', 10.00),
+   ('Aéroport', 'Novotel', 20.00),
+   ('Aéroport', 'Ibis', 10.00),
+   ('Aéroport', 'Lokanga', 25.00),
+   ('Aéroport', 'Trano', 30.00),
+   ('Colbert', 'Novotel', 8.00),
+   ('Colbert', 'Ibis', 6.00),
+   ('Colbert', 'Lokanga', 12.00),
+   ('Colbert', 'Trano', 20.00),
+   ('Novotel', 'Ibis', 14.00),
+   ('Novotel', 'Lokanga', 10.00),
+   ('Novotel', 'Trano', 16.00),
+   ('Ibis', 'Lokanga', 18.00),
+   ('Ibis', 'Trano', 18.00),
+   ('Lokanga', 'Trano', 12.00);
 
 -- =============================================
 -- Vérification des données insérées

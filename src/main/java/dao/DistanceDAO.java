@@ -40,6 +40,6 @@ public class DistanceDAO {
      */
     public double getKm(String from, String to) throws SQLException {
         Distance distance = getDistance(from, to);
-        return distance != null ? distance.getKm() : 0;
+        return distance != null ? distance.getKm() : Double.POSITIVE_INFINITY;
     }
 }
