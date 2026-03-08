@@ -85,6 +85,19 @@ public class VehiculeDAO {
         }
     }
 
+    /**
+     * Met à jour la colonne available_from pour un véhicule (heure de retour à l'aéroport).
+     */
+    public void updateAvailableFrom(int id, java.sql.Timestamp availableFrom) throws SQLException {
+        String sql = "UPDATE vehicules SET available_from = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, availableFrom);
+            stmt.setInt(2, id);
+            stmt.executeUpdate();
+        }
+    }
+
     private Vehicule mapResultSet(ResultSet rs) throws SQLException {
         Vehicule vehicule = new Vehicule();
         vehicule.setId(rs.getInt("id"));
@@ -93,6 +106,11 @@ public class VehiculeDAO {
         vehicule.setTypeCarburant(rs.getString("typeCarburant"));
         vehicule.setVitesseMoyenne(rs.getBigDecimal("vitesseMoyenne"));
         vehicule.setTempsAttente(rs.getInt("tempsAttente"));
+        try {
+            vehicule.setAvailableFrom(rs.getTimestamp("available_from"));
+        } catch (SQLException e) {
+            // colonne absente si migration non encore appliquée
+        }
         return vehicule;
     }
 }

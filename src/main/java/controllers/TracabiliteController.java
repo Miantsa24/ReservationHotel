@@ -18,7 +18,6 @@ import models.VehiculeTracabilite;
 import service.TracabiliteService;
 
 import java.sql.Date;
-import java.sql.SQLException;
 import java.util.*;
 
 @Controller

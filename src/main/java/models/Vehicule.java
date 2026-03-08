@@ -43,4 +43,7 @@ public class Vehicule {
 
     public int getTempsAttente() { return tempsAttente; }
     public void setTempsAttente(int tempsAttente) { this.tempsAttente = tempsAttente; }
+
+    public Timestamp getAvailableFrom() { return availableFrom; }
+    public void setAvailableFrom(Timestamp availableFrom) { this.availableFrom = availableFrom; }
 }

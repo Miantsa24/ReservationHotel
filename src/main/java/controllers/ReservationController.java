@@ -140,6 +140,8 @@ public class ReservationController {
 
     /**
      * Enregistre une nouvelle réservation (Front-Office)
+     * Vérifie d'abord la disponibilité d'un véhicule avant de sauvegarder.
+     * Si aucun véhicule n'est disponible, la réservation est rejetée avec un message explicite.
      */
     @PostMapping("/reservation/save")
     public ModelView saveReservation(@RequestParam("hotelId") String hotelId, 
@@ -151,37 +153,47 @@ public class ReservationController {
         ModelView mv = new ModelView("/WEB-INF/views/reservation-form.jsp");
         
         try {
+            Date date = Date.valueOf(dateArrivee);
+            Time time = Time.valueOf(heureArrivee + ":00");
+            int nbPersonnes = Integer.parseInt(nombrePersonnes);
+
+            // Pré-vérification : un véhicule est-il disponible AVANT de sauvegarder ?
+            Vehicule vehiculeDisponible = vehiculeSelectionService.selectionnerVehicule(nbPersonnes, date, time);
+            if (vehiculeDisponible == null) {
+                mv.addItem("rejet", "Aucun véhicule disponible pour " + nbPersonnes
+                    + " personne(s) le " + dateArrivee + " à " + heureArrivee
+                    + ". Tous les véhicules sont occupés ou de capacité insuffisante."
+                    + " Veuillez choisir une autre date ou heure.");
+                mv.addItem("hotels", hotelDAO.findAll());
+                return mv;
+            }
+
             // Création de la réservation
             Reservation reservation = new Reservation();
             reservation.setHotelId(Integer.parseInt(hotelId));
-            reservation.setDateArrivee(Date.valueOf(dateArrivee));
-            reservation.setHeureArrivee(Time.valueOf(heureArrivee + ":00"));
-            reservation.setNombrePersonnes(Integer.parseInt(nombrePersonnes));
+            reservation.setDateArrivee(date);
+            reservation.setHeureArrivee(time);
+            reservation.setNombrePersonnes(nbPersonnes);
             reservation.setRefClient(refClient);
 
             // Sauvegarde en base
             reservationDAO.save(reservation);
 
-            // Assignation automatique d'un véhicule
+            // Assignation automatique du véhicule
             Vehicule vehiculeAssigne = vehiculeSelectionService.assignerVehicule(
-                reservation.getId(), reservation.getNombrePersonnes());
+                reservation.getId(), nbPersonnes);
 
-            String successMsg = "Réservation enregistrée avec succès ! (ID: " + reservation.getId() + ")";
+            String successMsg = "Réservation n°" + reservation.getId() + " enregistrée avec succès !";
             if (vehiculeAssigne != null) {
-                successMsg += " — Véhicule assigné : " + vehiculeAssigne.getMarque() 
-                    + " (capacité: " + vehiculeAssigne.getCapacite() 
-                    + ", carburant: " + vehiculeAssigne.getTypeCarburant() + ")";
-            } else {
-                successMsg += " — Aucun véhicule disponible pour " + reservation.getNombrePersonnes() + " personnes.";
+                successMsg += " — Véhicule assigné : " + vehiculeAssigne.getMarque()
+                    + " (capacité : " + vehiculeAssigne.getCapacite()
+                    + ", carburant : " + vehiculeAssigne.getTypeCarburant() + ")";
             }
             mv.addItem("success", successMsg);
-            
-            // Recharger les hôtels pour le formulaire
-            List<Hotel> hotels = hotelDAO.findAll();
-            mv.addItem("hotels", hotels);
+            mv.addItem("hotels", hotelDAO.findAll());
             
         } catch (Exception e) {
-            mv.addItem("error", "Erreur lors de l'enregistrement: " + e.getMessage());
+            mv.addItem("error", "Erreur lors de l'enregistrement : " + e.getMessage());
             try {
                 mv.addItem("hotels", hotelDAO.findAll());
             } catch (Exception ex) {
