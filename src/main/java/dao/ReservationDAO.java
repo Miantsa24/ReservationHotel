@@ -67,8 +67,7 @@ public class ReservationDAO {
     }
 
     public Reservation findById(int id) throws SQLException {
-        String sql = "SELECT r.*, h.nom as hotel_nom FROM reservations r " +
-                     "JOIN hotels h ON r.hotel_id = h.id WHERE r.id = ?";
+        String sql = "SELECT r.*, h.nom as hotel_nom FROM reservations r LEFT JOIN hotels h ON r.hotel_id = h.id WHERE r.id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, id);
@@ -81,27 +80,13 @@ public class ReservationDAO {
         return null;
     }
 
-    /**
-     * Récupère toutes les réservations assignées à un véhicule pour une date donnée.
-     */
-    public List<Reservation> findByVehiculeAndDate(int idVehicule, Date date) throws SQLException {
-        List<Reservation> list = new ArrayList<>();
-        String sql = "SELECT r.*, h.nom as hotel_nom FROM reservations r " +
-                     "JOIN hotels h ON r.hotel_id = h.id " +
-                     "JOIN reservation_vehicule rv ON rv.id_reservation = r.id " +
-                     "WHERE rv.id_vehicule = ? AND r.date_arrivee = ? " +
-                     "ORDER BY r.heure_arrivee";
+    public void delete(int id) throws SQLException {
+        String sql = "DELETE FROM reservations WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idVehicule);
-            stmt.setDate(2, date);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    list.add(mapResultSet(rs));
-                }
-            }
+            stmt.setInt(1, id);
+            stmt.executeUpdate();
         }
-        return list;
     }
 
     private Reservation mapResultSet(ResultSet rs) throws SQLException {

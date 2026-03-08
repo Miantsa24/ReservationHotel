@@ -155,11 +155,6 @@
             color: #742a2a;
             border: 1px solid var(--error-color);
         }
-        .alert-warning {
-            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-            color: #78350f;
-            border: 1px solid #f59e0b;
-        }
         .hotel-info {
             font-size: 12px;
             color: var(--text-secondary);
@@ -180,18 +175,15 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="app-layout">
+        <%@ include file="includes/sidebar.jsp" %>
+        <div class="main-content">
+            <div class="container">
         <h1>🏨 Nouvelle Réservation</h1>
         
         <% if (request.getAttribute("success") != null) { %>
             <div class="alert alert-success">
                 ✅ <%= request.getAttribute("success") %>
-            </div>
-        <% } %>
-        
-        <% if (request.getAttribute("rejet") != null) { %>
-            <div class="alert alert-warning">
-                ⚠️ <strong>Réservation refusée :</strong> <%= request.getAttribute("rejet") %>
             </div>
         <% } %>
         
@@ -245,6 +237,8 @@
             
             <button type="submit">📝 Enregistrer la réservation</button>
         </form>
+            </div>
+        </div>
     </div>
 </body>
 </html>

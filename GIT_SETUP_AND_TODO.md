@@ -232,14 +232,16 @@
    - Prioriser traitement des réservations par ordre descendant `nombrePersonnes`.
    - Respecter règles existantes (carburant, aléatoire) pour départager véhicules.
 4. **Validation réservation** : Retourner un message d'erreur clair si aucune allocation possible.
-5. **Tests** : Écrire tests unitaires pour la nouvelle logique d'assignation multi-réservations.
+5. **Ajout d'un side bar pour la navigation** : Menu : Vehicules, Reservations, Tracabilite des vehicules
+6. **Tests** : Écrire tests unitaires pour la nouvelle logique d'assignation multi-réservations.
 
 #### Dev2 (Back-office) : Tojo ETU003362
 **Créer branche** : `feature/backoffice-sprint4-dev2` à partir de `main`.
 1. **Disponibilité véhicules** : Implémenter mise à jour de `available_from` après assignation (utiliser `TracabiliteService.calculerHeureRetour`).
 2. **Routing (ordre hôtels)** : Implémenter utilitaire pour ordonner les hôtels d'un véhicule :
    - Démarrer par l'hôtel le plus proche de l'aéroport.
-   - Ensuite partir vers l'hôtel le plus proche du précédent (algorithme nearest-neighbour utilisant la table `distance`).
+   - Ensuite partir vers l'hôtel le plus proche du précédent (algorithme nearest-neighbour utilisant la table `distance`). si la distance entre les hotels suivants sont egaux, la prochaine destination suivra l'ordre alphabetique.
+
 3. **Disponibilité à la réservation** : Filtrer véhicules éligibles selon `available_from` (doit être <= date+heure de la nouvelle réservation ou NULL).
 4. **Controllers / UI** : Mettre à jour la création de réservation pour gérer le rejet/acceptation et afficher message utilisateur.
 5. **Tests d'intégration** : Scénarios multi-réservations (ex: 2 clients même date+heure), scénario véhicule occupé.

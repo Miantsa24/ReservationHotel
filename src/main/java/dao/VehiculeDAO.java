@@ -11,10 +11,10 @@ public class VehiculeDAO {
         String sql;
         if (vehicule.getId() == 0) {
             // Insert
-            sql = "INSERT INTO vehicules (marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente) VALUES (?, ?, ?, ?, ?)";
+            sql = "INSERT INTO vehicules (marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente, available_from) VALUES (?, ?, ?, ?, ?, ?)";
         } else {
             // Update
-            sql = "UPDATE vehicules SET marque = ?, capacite = ?, typeCarburant = ?, vitesseMoyenne = ?, tempsAttente = ? WHERE id = ?";
+            sql = "UPDATE vehicules SET marque = ?, capacite = ?, typeCarburant = ?, vitesseMoyenne = ?, tempsAttente = ?, available_from = ? WHERE id = ?";
         }
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -25,9 +25,15 @@ public class VehiculeDAO {
             stmt.setString(3, vehicule.getTypeCarburant());
             stmt.setBigDecimal(4, vehicule.getVitesseMoyenne());
             stmt.setInt(5, vehicule.getTempsAttente());
+            // available_from (nullable)
+            if (vehicule.getAvailableFrom() != null) {
+                stmt.setTimestamp(6, vehicule.getAvailableFrom());
+            } else {
+                stmt.setTimestamp(6, null);
+            }
 
             if (vehicule.getId() != 0) {
-                stmt.setInt(6, vehicule.getId());
+                stmt.setInt(7, vehicule.getId());
             }
 
             stmt.executeUpdate();
@@ -85,19 +91,6 @@ public class VehiculeDAO {
         }
     }
 
-    /**
-     * Met à jour la colonne available_from pour un véhicule (heure de retour à l'aéroport).
-     */
-    public void updateAvailableFrom(int id, java.sql.Timestamp availableFrom) throws SQLException {
-        String sql = "UPDATE vehicules SET available_from = ? WHERE id = ?";
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setTimestamp(1, availableFrom);
-            stmt.setInt(2, id);
-            stmt.executeUpdate();
-        }
-    }
-
     private Vehicule mapResultSet(ResultSet rs) throws SQLException {
         Vehicule vehicule = new Vehicule();
         vehicule.setId(rs.getInt("id"));
@@ -109,8 +102,38 @@ public class VehiculeDAO {
         try {
             vehicule.setAvailableFrom(rs.getTimestamp("available_from"));
         } catch (SQLException e) {
-            // colonne absente si migration non encore appliquée
+            // colonne peut ne pas exister si migration non appliquée; ignorer
         }
         return vehicule;
+    }
+
+    /**
+     * Met à jour la colonne available_from pour un véhicule.
+     */
+    public void updateAvailableFrom(int id, java.sql.Timestamp ts) throws SQLException {
+        String sql = "UPDATE vehicules SET available_from = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, ts);
+            stmt.setInt(2, id);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Récupère la valeur available_from pour un véhicule (peut être null).
+     */
+    public java.sql.Timestamp findAvailableFrom(int id) throws SQLException {
+        String sql = "SELECT available_from FROM vehicules WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getTimestamp("available_from");
+                }
+            }
+        }
+        return null;
     }
 }
