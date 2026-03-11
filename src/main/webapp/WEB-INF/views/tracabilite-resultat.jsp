@@ -178,10 +178,50 @@
         .hotel-badge {
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
             color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            display: inline-block;
+            max-width: 100%;
+            box-shadow: var(--shadow-light);
+        }
+        .parcours-container {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 12px;
+        }
+        .parcours-step {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: var(--shadow-light);
+            white-space: nowrap;
+        }
+        .parcours-arrow {
+            color: var(--text-secondary);
+            font-weight: 800;
+            font-size: 18px;
+            margin: 0 4px;
+        }
+        /* fallback single-block parcours style (kept for compatibility) */
+        .parcours-badge {
+            display: block;
+            background: linear-gradient(90deg, rgba(66,153,225,0.08), rgba(72,187,120,0.06));
+            color: var(--text-primary);
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 800;
+            line-height: 1.4;
+            word-break: break-word;
+            white-space: normal;
+            box-shadow: var(--shadow-medium);
+            border: 1px solid rgba(66,153,225,0.12);
         }
         table {
             width: 100%;
@@ -284,7 +324,10 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="app-layout">
+        <%@ include file="includes/sidebar.jsp" %>
+        <div class="main-content">
+            <div class="container">
         <h1>🚐 Traçabilité des Véhicules</h1>
         <div class="date-header">📅 Traçabilité du <strong><%= request.getAttribute("date") %></strong></div>
 
@@ -334,11 +377,17 @@
 
                     <!-- Hôtels parcourus -->
                     <div class="section-title">🏨 Hôtels parcourus</div>
-                    <div class="hotels-list">
-                        <% for (String hotel : vt.getHotels()) { %>
-                            <span class="hotel-badge"><%= hotel %></span>
-                        <% } %>
-                    </div>
+                                    <div class="hotels-list parcours-container">
+                                        <div class="parcours-step">Aéroport</div>
+                                        <% if (vt.getHotels() != null && !vt.getHotels().isEmpty()) { %>
+                                            <% for (String hotel : vt.getHotels()) { %>
+                                                <div class="parcours-arrow">→</div>
+                                                <div class="parcours-step"><%= hotel %></div>
+                                            <% } %>
+                                        <% } %>
+                                        <div class="parcours-arrow">→</div>
+                                        <div class="parcours-step">Aéroport</div>
+                                    </div>
 
                     <!-- Tableau des réservations -->
                     <div class="section-title">📋 Réservations assignées (<%= vt.getReservations().size() %>)</div>
@@ -376,6 +425,6 @@
         <div class="footer">
             <a href="<%= request.getContextPath() %>/tracabilite" class="back-link">⬅ Retour</a>
         </div>
-    </div>
-</body>
+        </div>
+    </body>
 </html>

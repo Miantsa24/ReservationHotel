@@ -2,6 +2,7 @@ package service;
 
 import dao.DistanceDAO;
 import dao.HotelDAO;
+import service.HotelRoutingService;
 import models.Hotel;
 import models.Reservation;
 import models.Vehicule;
@@ -25,6 +26,7 @@ public class TracabiliteService {
 
     private DistanceDAO distanceDAO = new DistanceDAO();
     private HotelDAO hotelDAO = new HotelDAO();
+    private HotelRoutingService hotelRoutingService = new HotelRoutingService();
 
     /**
      * Calcule l'heure de retour d'un véhicule à l'aéroport.
@@ -47,17 +49,28 @@ public class TracabiliteService {
         if (vehicule.getVitesseMoyenne() == null || vehicule.getVitesseMoyenne().compareTo(BigDecimal.ZERO) == 0) {
             return null;
         }
-
         // Trier par heure d'arrivée
         reservations.sort(Comparator.comparing(Reservation::getHeureArrivee));
 
         // Heure de départ du véhicule = heure d'arrivée du 1er client
         Time heureDepart = reservations.get(0).getHeureArrivee();
 
-        // Distance totale parcourue
-        double totalKm = calculerDistanceTotale(reservations);
+        // Construire la liste des hôtels uniques à visiter
+        List<String> hotels = new java.util.ArrayList<>();
+        for (Reservation r : reservations) {
+            models.Hotel h = hotelDAO.findById(r.getHotelId());
+            if (h != null && !hotels.contains(h.getNom())) {
+                hotels.add(h.getNom());
+            }
+        }
 
-        if (totalKm == 0) {
+        // Ordonner les hôtels via nearest-neighbour
+        List<String> ordered = hotelRoutingService.ordonnerHotels(hotels);
+
+        // Calculer la distance le long du parcours ordonné (Aéroport -> ... -> Aéroport)
+        double totalKm = calculerDistanceParcours(ordered);
+
+        if (Double.isInfinite(totalKm) || totalKm == 0) {
             return null;
         }
 
@@ -80,14 +93,45 @@ public class TracabiliteService {
      * @return la distance totale en km
      */
     public double calculerDistanceTotale(List<Reservation> reservations) throws SQLException {
+        // Essayer de calculer la distance le long du parcours ordonné
+        List<String> hotels = new java.util.ArrayList<>();
+        for (Reservation r : reservations) {
+            Hotel h = hotelDAO.findById(r.getHotelId());
+            if (h != null && !hotels.contains(h.getNom())) hotels.add(h.getNom());
+        }
+        List<String> ordered = hotelRoutingService.ordonnerHotels(hotels);
+        double km = calculerDistanceParcours(ordered);
+        if (!Double.isInfinite(km) && km > 0) return km;
+
+        // Fallback : somme des aller-retour Aéroport <-> hôtel
         double totalKm = 0;
         for (Reservation r : reservations) {
             Hotel hotel = hotelDAO.findById(r.getHotelId());
             if (hotel != null) {
-                double km = distanceDAO.getKm(AEROPORT, hotel.getNom());
-                totalKm += km * 2; // aller + retour
+                double d = distanceDAO.getKm(AEROPORT, hotel.getNom());
+                totalKm += d * 2; // aller + retour
             }
         }
+        return totalKm;
+    }
+
+    /**
+     * Calcule la distance totale le long d'un parcours ordonné de noms d'hôtels.
+     * Parcours: Aéroport -> h1 -> h2 -> ... -> hn -> Aéroport
+     */
+    public double calculerDistanceParcours(List<String> orderedHotels) throws SQLException {
+        double totalKm = 0;
+        String current = AEROPORT;
+        for (String h : orderedHotels) {
+            double seg = distanceDAO.getKm(current, h);
+            if (Double.isInfinite(seg)) return Double.POSITIVE_INFINITY;
+            totalKm += seg;
+            current = h;
+        }
+        // retour au point de départ
+        double last = distanceDAO.getKm(current, AEROPORT);
+        if (Double.isInfinite(last)) return Double.POSITIVE_INFINITY;
+        totalKm += last;
         return totalKm;
     }
 

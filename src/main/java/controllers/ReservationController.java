@@ -151,12 +151,53 @@ public class ReservationController {
         ModelView mv = new ModelView("/WEB-INF/views/reservation-form.jsp");
         
         try {
+            // Validation minimale des champs
+            if (hotelId == null || hotelId.trim().isEmpty() || dateArrivee == null || dateArrivee.trim().isEmpty()
+                    || heureArrivee == null || heureArrivee.trim().isEmpty() || nombrePersonnes == null || nombrePersonnes.trim().isEmpty()) {
+                mv.addItem("error", "Tous les champs obligatoires doivent être remplis.");
+                mv.addItem("hotels", hotelDAO.findAll());
+                return mv;
+            }
+
             // Création de la réservation
             Reservation reservation = new Reservation();
-            reservation.setHotelId(Integer.parseInt(hotelId));
-            reservation.setDateArrivee(Date.valueOf(dateArrivee));
-            reservation.setHeureArrivee(Time.valueOf(heureArrivee + ":00"));
-            reservation.setNombrePersonnes(Integer.parseInt(nombrePersonnes));
+            try {
+                reservation.setHotelId(Integer.parseInt(hotelId));
+            } catch (NumberFormatException nfe) {
+                mv.addItem("error", "Identifiant d'hôtel invalide.");
+                mv.addItem("hotels", hotelDAO.findAll());
+                return mv;
+            }
+
+            try {
+                reservation.setDateArrivee(Date.valueOf(dateArrivee));
+            } catch (IllegalArgumentException iae) {
+                mv.addItem("error", "Date invalide — format attendu: yyyy-MM-dd.");
+                mv.addItem("hotels", hotelDAO.findAll());
+                return mv;
+            }
+
+            try {
+                // Accept heureArrivee in HH:mm or HH:mm:ss; normalize to HH:mm:ss if needed
+                String h = heureArrivee.trim();
+                if (h.matches("^\\d{1,2}:\\d{2}$")) {
+                    h = h + ":00";
+                }
+                reservation.setHeureArrivee(Time.valueOf(h));
+            } catch (IllegalArgumentException iae) {
+                mv.addItem("error", "Heure invalide — format attendu: HH:mm ou HH:mm:ss.");
+                mv.addItem("hotels", hotelDAO.findAll());
+                return mv;
+            }
+
+            try {
+                reservation.setNombrePersonnes(Integer.parseInt(nombrePersonnes));
+            } catch (NumberFormatException nfe) {
+                mv.addItem("error", "Nombre de personnes invalide.");
+                mv.addItem("hotels", hotelDAO.findAll());
+                return mv;
+            }
+
             reservation.setRefClient(refClient);
 
             // Sauvegarde en base
@@ -166,21 +207,29 @@ public class ReservationController {
             Vehicule vehiculeAssigne = vehiculeSelectionService.assignerVehicule(
                 reservation.getId(), reservation.getNombrePersonnes());
 
-            String successMsg = "Réservation enregistrée avec succès ! (ID: " + reservation.getId() + ")";
             if (vehiculeAssigne != null) {
-                successMsg += " — Véhicule assigné : " + vehiculeAssigne.getMarque() 
+                String successMsg = "Réservation enregistrée avec succès ! (ID: " + reservation.getId() + ")" +
+                    " — Véhicule assigné : " + vehiculeAssigne.getMarque() 
                     + " (capacité: " + vehiculeAssigne.getCapacite() 
                     + ", carburant: " + vehiculeAssigne.getTypeCarburant() + ")";
+                mv.addItem("success", successMsg);
             } else {
-                successMsg += " — Aucun véhicule disponible pour " + reservation.getNombrePersonnes() + " personnes.";
+                // Aucun véhicule disponible -> supprimer la réservation et afficher une erreur claire
+                try {
+                    reservationDAO.delete(reservation.getId());
+                } catch (Exception ex) {
+                    // ignore delete failure, we'll still show the error
+                }
+                mv.addItem("error", "Aucune allocation possible : aucun véhicule disponible pour " + reservation.getNombrePersonnes() + " personnes à la date/heure demandée.");
             }
-            mv.addItem("success", successMsg);
             
             // Recharger les hôtels pour le formulaire
             List<Hotel> hotels = hotelDAO.findAll();
             mv.addItem("hotels", hotels);
             
         } catch (Exception e) {
+            // Log complet côté serveur pour diagnostic (stacktrace)
+            e.printStackTrace();
             mv.addItem("error", "Erreur lors de l'enregistrement: " + e.getMessage());
             try {
                 mv.addItem("hotels", hotelDAO.findAll());

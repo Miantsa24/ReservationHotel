@@ -201,7 +201,10 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="app-layout">
+        <%@ include file="includes/sidebar.jsp" %>
+        <div class="main-content">
+            <div class="container">
         <h1>🚗 <%= request.getAttribute("vehicule") != null ? "Modifier" : "Nouveau" %> Véhicule</h1>
 
         <div class="nav-links">
@@ -267,6 +270,8 @@
 
             <button type="submit">💾 <%= isEdit ? "Modifier" : "Enregistrer" %> le véhicule</button>
         </form>
+            </div>
+        </div>
     </div>
 </body>
 </html>

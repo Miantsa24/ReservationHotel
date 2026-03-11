@@ -138,7 +138,10 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="app-layout">
+        <%@ include file="includes/sidebar.jsp" %>
+        <div class="main-content">
+            <div class="container">
         <h1>🚐 Traçabilité des Véhicules</h1>
 
         <form action="${pageContext.request.contextPath}/tracabilite/resultat" method="POST">
@@ -149,6 +152,8 @@
 
             <button type="submit">📋 Soumettre</button>
         </form>
+            </div>
+        </div>
     </div>
 </body>
 </html>

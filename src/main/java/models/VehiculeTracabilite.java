@@ -16,6 +16,7 @@ public class VehiculeTracabilite {
     private Time heureDepart;
     private Time heureRetour;
     private double distanceTotale;
+    private String parcours;
 
     public VehiculeTracabilite() {
         this.reservations = new ArrayList<>();
@@ -40,4 +41,7 @@ public class VehiculeTracabilite {
 
     public double getDistanceTotale() { return distanceTotale; }
     public void setDistanceTotale(double distanceTotale) { this.distanceTotale = distanceTotale; }
+
+    public String getParcours() { return parcours; }
+    public void setParcours(String parcours) { this.parcours = parcours; }
 }

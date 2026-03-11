@@ -10,6 +10,7 @@ public class Vehicule {
     private String typeCarburant;
     private BigDecimal vitesseMoyenne;
     private int tempsAttente;
+    // Quand le véhicule redevient disponible au dépôt (aéroportt)
     private Timestamp availableFrom;
 
     // Constructeurs
@@ -22,7 +23,7 @@ public class Vehicule {
         this.typeCarburant = typeCarburant;
         this.vitesseMoyenne = vitesseMoyenne;
         this.tempsAttente = tempsAttente;
-        this.availableFrom = new Timestamp(System.currentTimeMillis());
+        this.availableFrom = new Timestamp(System.currentTimeMillis()); // disponible immédiatement par défaut
     }
 
     // Getters et Setters
@@ -43,4 +44,7 @@ public class Vehicule {
 
     public int getTempsAttente() { return tempsAttente; }
     public void setTempsAttente(int tempsAttente) { this.tempsAttente = tempsAttente; }
+
+    public Timestamp getAvailableFrom() { return availableFrom; }
+    public void setAvailableFrom(Timestamp availableFrom) { this.availableFrom = availableFrom; }
 }
