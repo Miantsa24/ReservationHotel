@@ -112,7 +112,30 @@ public class TracabiliteController {
 
                 // Heure de départ et de retour
                 vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));
-                vt.setHeureRetour(tracabiliteService.calculerHeureRetour(vehicule, resasVehicule));
+                java.sql.Time heureRetour = tracabiliteService.calculerHeureRetour(vehicule, resasVehicule);
+                if (heureRetour == null) {
+                    // fallback: prefer vehicule.available_from if present
+                    try {
+                        java.sql.Timestamp av = vehiculeDAO.findAvailableFrom(vehicule.getId());
+                        if (av != null) {
+                            heureRetour = new java.sql.Time(av.getTime());
+                        } else {
+                            // fallback: latest reservation heure_arrivee + 2 hours
+                            java.time.LocalTime latest = resasVehicule.stream()
+                                    .map(Reservation::getHeureArrivee)
+                                    .filter(Objects::nonNull)
+                                    .map(java.sql.Time::toLocalTime)
+                                    .max(Comparator.naturalOrder())
+                                    .orElse(java.time.LocalTime.MIDNIGHT);
+                            java.time.LocalDate dateLocal = dateSql.toLocalDate();
+                            java.time.LocalDateTime ldt = java.time.LocalDateTime.of(dateLocal, latest).plusHours(2);
+                            heureRetour = new java.sql.Time(java.sql.Timestamp.valueOf(ldt).getTime());
+                        }
+                    } catch (Exception ex) {
+                        // ignore and leave heureRetour null
+                    }
+                }
+                vt.setHeureRetour(heureRetour);
                 vt.setDistanceTotale(tracabiliteService.calculerDistanceTotale(resasVehicule));
 
                 tracabilites.add(vt);
@@ -120,6 +143,17 @@ public class TracabiliteController {
 
             mv.addItem("tracabilites", tracabilites);
             mv.addItem("totalVehicules", tracabilites.size());
+
+            // Dashboard stats: count reservations by status for this date
+            int countAssignees = reservationDAO.countByDateAndStatus(dateSql, "ASSIGNE");
+            int countNonAssignees = reservationDAO.countByDateAndStatus(dateSql, "NON_ASSIGNE");
+            int countEnAttente = reservationDAO.countByDateAndStatus(dateSql, "EN_ATTENTE");
+            int totalReservations = countAssignees + countNonAssignees + countEnAttente;
+            
+            mv.addItem("countAssignees", countAssignees);
+            mv.addItem("countNonAssignees", countNonAssignees);
+            mv.addItem("countEnAttente", countEnAttente);
+            mv.addItem("totalReservations", totalReservations);
 
         } catch (Exception e) {
             e.printStackTrace();

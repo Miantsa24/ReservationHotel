@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     heure_arrivee TIME NOT NULL,
     nombre_personnes INT NOT NULL,
     ref_client VARCHAR(50) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'EN_ATTENTE',
     FOREIGN KEY (hotel_id) REFERENCES hotels(id) ON DELETE CASCADE
 );
 
@@ -69,5 +70,17 @@ CREATE TABLE IF NOT EXISTS reservation_vehicule (
     FOREIGN KEY (id_reservation) REFERENCES reservations(id) ON DELETE CASCADE,
     FOREIGN KEY (id_vehicule) REFERENCES vehicules(id) ON DELETE CASCADE
 );
+
+ALTER TABLE vehicules
+  ADD COLUMN available_from DATETIME NULL COMMENT 'Timestamp when vehicle becomes available (returned to airport)';
+
+-- 2) Optionnel : index pour rechercher rapidement les véhicules disponibles
+CREATE INDEX idx_vehicules_available_from ON vehicules (available_from);
+
+-- 3) Index pour accélérer les recherches sur réservations par date+heure
+CREATE INDEX idx_reservations_date_heure ON reservations (date_arrivee, heure_arrivee);
+
+-- Index optionnel pour filtrer rapidement les réservations en attente
+CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations (status);
 
 

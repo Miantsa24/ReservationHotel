@@ -124,5 +124,6 @@
         <li><a href="<%= request.getContextPath() %>/vehicules" class="<%= request.getRequestURI().contains("vehicule") ? "active" : "" %>"> Vehicules</a></li>
         <li><a href="<%= request.getContextPath() %>/reservations" class="<%= request.getRequestURI().contains("reservation") ? "active" : "" %>"> Reservations</a></li>
         <li><a href="<%= request.getContextPath() %>/tracabilite" class="<%= request.getRequestURI().contains("tracabilite") ? "active" : "" %>"> Tracabilite</a></li>
+        <li><a href="<%= request.getContextPath() %>/assignations" class="<%= request.getRequestURI().contains("assignation") ? "active" : "" %>"> Assignations</a></li>
     </ul>
 </div>

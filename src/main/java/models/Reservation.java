@@ -11,6 +11,9 @@ public class Reservation {
     private int nombrePersonnes;
     private String refClient;
     
+    // Statut de la réservation: EN_ATTENTE | ASSIGNE | NON_ASSIGNE
+    private String status = "EN_ATTENTE";
+
     // Pour affichage : nom de l'hôtel
     private String hotelNom;
 
@@ -25,6 +28,9 @@ public class Reservation {
         this.nombrePersonnes = nombrePersonnes;
         this.refClient = refClient;
     }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     // Getters et Setters
     public int getId() { return id; }

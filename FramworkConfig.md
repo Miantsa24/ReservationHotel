@@ -20,3 +20,5 @@ regenerer token
 mvn compile
 mvn exec:java -Dexec.mainClass=dao.TokenGenerator
 mvn package -DskipTests
+
+
