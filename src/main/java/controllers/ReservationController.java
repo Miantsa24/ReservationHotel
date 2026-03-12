@@ -202,26 +202,8 @@ public class ReservationController {
 
             // Sauvegarde en base
             reservationDAO.save(reservation);
-
-            // Assignation automatique d'un véhicule
-            Vehicule vehiculeAssigne = vehiculeSelectionService.assignerVehicule(
-                reservation.getId(), reservation.getNombrePersonnes());
-
-            if (vehiculeAssigne != null) {
-                String successMsg = "Réservation enregistrée avec succès ! (ID: " + reservation.getId() + ")" +
-                    " — Véhicule assigné : " + vehiculeAssigne.getMarque() 
-                    + " (capacité: " + vehiculeAssigne.getCapacite() 
-                    + ", carburant: " + vehiculeAssigne.getTypeCarburant() + ")";
-                mv.addItem("success", successMsg);
-            } else {
-                // Aucun véhicule disponible -> supprimer la réservation et afficher une erreur claire
-                try {
-                    reservationDAO.delete(reservation.getId());
-                } catch (Exception ex) {
-                    // ignore delete failure, we'll still show the error
-                }
-                mv.addItem("error", "Aucune allocation possible : aucun véhicule disponible pour " + reservation.getNombrePersonnes() + " personnes à la date/heure demandée.");
-            }
+            // La réservation est enregistrée et restera en attente d'assignation
+            mv.addItem("success", "Réservation enregistrée et en attente d'assignation. (status: EN_ATTENTE)");
             
             // Recharger les hôtels pour le formulaire
             List<Hotel> hotels = hotelDAO.findAll();
