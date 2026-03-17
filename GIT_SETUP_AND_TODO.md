@@ -193,6 +193,7 @@
 - Les deux devs doivent coordonner le nom et la signature des méthodes partagées AVANT de commencer le développement pour éviter les conflits lors du merge.
 - Données de test : s'assurer que la table `distance` contient les trajets Aéroport ↔ Hôtels cohérents avec les hôtels existants (une seule entrée par paire, la bidirectionnalité est gérée côté code).
 
+==============================================================================
 
 ## Rôles:
 - **Sprint 4:**
@@ -261,4 +262,209 @@
 ### Commits / PR
 - Commits atomiques par fonctionnalité.
 - Ouvrir PR vers `main` une fois testé et demander review du TL et de l'autre dev.
+
+==============================================================================
+
+## Rôles:
+ - **Sprint 5:**
+    Team Lead : Alexandra ETU003306
+    Dev 1 (BackOffice) : Tojo ETU003362
+    Dev 2 (BackOffice) : Malala ETU003211
+
+## Todo List pour Sprint 5
+
+### Rôles et Responsabilités
+ - **TL (Team Lead)** : Code reviews, assignation des tâches, création du todo list, merges, déploiements. (fonctions TL inchangées)
+ - **Dev1 (Back-office)** : DB, DAO, modèle, migrations, tests unitaires, logique d'assignation multi-réservations liée au temps d'attente.
+ - **Dev2 (Back-office)** : Calcul kilomètres, heure départ et arriver, controllers/JSP, tests d'intégration.
+
+
+### Tâches pour Sprint 5
+
+#### TL (Team Lead) : Alexandra ETU003306
+1. Assigner les tâches aux devs via le todo list dans `GIT_SETUP_AND_TODO.md`.
+2. Valider la proposition de migration SQL et la stratégie (format `liste_reservation` JSON ou CSV, types des colonnes).
+3. Revoir les PR des devs, valider tests et critères d'acceptation.
+4. Si erreurs : Demander aux devs de créer une branche `fix/[nom]` et refaire PR.
+5. Mener les merges : `main` → `staging` → `release` et coordonner déploiement.
+
+#### Dev1 (Back-office) : Tojo ETU003362
+**Créer branche** : `feature/backoffice-sprint5-dev1` à partir de `main`.
+1. **DB & Migration** : Proposer et livrer un fichier de migration SQL (ex: `migrations/2026_03_17_add_vehicule_columns.sql`) qui ajoute : `heure_depart`, `heure_arrivee`, `liste_reservation`, `kilometrage_parcouru` à `vehicules`.
+2. **Models** : Mettre à jour la classe `Vehicule` pour inclure les nouveaux champs.
+3. **DAO** : Mettre à jour `VehiculeDAO` et `ReservationVehiculeDAO` pour lire/écrire ces champs; ajouter méthodes pour stocker/mettre à jour `liste_reservation` (format JSON recommandé) et `kilometrage_parcouru`.
+4. **Logique de groupement** : Implémenter la logique qui regroupe les réservations dont les heures d'arrivée sont à l'intérieur du `temps_attente` du véhicule (ex: 30 minutes). Le départ du véhicule = heure d'arrivée du dernier vol inclus.
+   - Exemple: v1(8), v2(5), temps_attente=30min, vols 8:00(6),8:15(4),8:20(2) → départ 8:20. Assignation doit respecter capacité cumulée.
+5. **Tests unitaires** : Ajouter tests unitaires pour persistance des nouveaux champs et pour la logique de groupement.
+6. **Commit & PR** : Commits atomiques et PR vers `main` pour review.
+
+#### Dev2 (Back-office) : Malala ETU003211
+**Créer branche** : `feature/backoffice-sprint5-dev2` à partir de `main`.
+1. **Kilométrage** : Calculer la distance totale par véhicule selon la règle : distance = (somme des trajets entre : aeroport → hotel1 → hotel2 → ... → dernier hotel) * 2 ; 
+    stocker dans `kilometrage_parcouru`.
+2. **Heure arrivée/départ** : Remplir `heure_depart` et `heure_arrivee` pour chaque véhicule assigné (heure_arrivee = heure de retour calculée via `TracabiliteService.calculerHeureRetour`).
+3. **Services/Controllers** : Mettre à jour `VehiculeSelectionService`, `AssignationService` et les contrôleurs (`AssignationController`, `ReservationController`) pour exposer le nouvel état et gérer les cas d'échec.
+4. **Vues** : Mettre à jour les JSPs pertinentes pour afficher la `liste_reservation`, `heure_depart`, `kilometrage_parcouru`.
+5. **Tests d'intégration** : Scénarios multi-réservations avec temps d'attente (incluant l'exemple ci-dessus) et vérification du calcul de kilométrage et des champs en base.
+6. **Commit & PR** : Commits atomiques et PR vers `main` pour review.
+
+### Critères d'acceptation
+ - Les règles du Sprint 4 sont respectées.
+ - Un véhicule peut contenir plusieurs réservations si capacité cumulée ≤ capacité véhicule.
+ - L'heure de départ est l'heure d'arrivée du dernier vol inclus dans le `temps_attente`.
+ - Le `kilometrage_parcouru` est calculé et stocké correctement.
+ - Les nouveaux champs sont persistés et visibles dans l'interface de traçabilité.
+ 
+### Contexte & règles spécifiques
+ - On conserve toutes les règles du Sprint 4.
+ - Nouveau comportement : multi-réservations dans un même véhicule si les vols arrivent dans un intervalle de `temps_attente` du véhicule (colonne `temps_attente` déjà présente).
+ - L'heure de départ du véhicule devient l'heure d'arrivée du dernier vol inclus dans le `temps_attente`.
+ - Calcul du kilométrage parcouru : distance = (somme des distances Aéroport → premier hôtel + entre hôtels + dernier hôtel → Aéroport) 
+ - Modif BDD : ajouter dans la table `vehicules` les colonnes : `heure_depart` DATETIME NULL, `heure_arrivee` DATETIME NULL, `liste_reservation` TEXT NULL (liste d'IDs d'hôtels ou JSON), `kilometrage_parcouru` DECIMAL(8,2) DEFAULT 0.
+
+## Scénario concret – Sprint 5 (temps d’attente + multi-réservations)
+📌 Données initiales
+Véhicules
+
+V1 : 8 places
+
+V2 : 5 places
+
+Temps d’attente
+
+⏱️ 30 minutes
+
+✈️ Vols / Réservations
+Vol	Heure arrivée	Nombre personnes	Hôtel
+Vol1	08:00	6	Colbert
+Vol2	08:15	4	Ibis
+Vol3	08:20	2	Panorama
+📍 Distances (km)
+Trajet	Distance
+Aéroport → Colbert	15
+Aéroport → Ibis	10
+Aéroport → Panorama	20
+Colbert → Ibis	5
+Colbert → Panorama	12
+Ibis → Panorama	8
+🧠 Étape 1 : Regroupement (temps d’attente)
+
+Premier vol = 08:00
+
+Fenêtre = 08:00 → 08:30
+
+👉 Tous les vols sont inclus (08:00, 08:15, 08:20)
+
+✅ Groupe unique :
+
+Total personnes = 6 + 4 + 2 = 12
+
+🕐 Étape 2 : Heure de départ
+
+👉 Règle Sprint 5 :
+
+heure départ = heure du dernier vol du groupe
+
+➡️ Heure départ = 08:20
+
+🚐 Étape 3 : Assignation des véhicules
+Tri des réservations (descendant personnes)
+
+Vol1 → 6 pers
+
+Vol2 → 4 pers
+
+Vol3 → 2 pers
+
+🔹 Affectation
+V1 (8 places)
+
+Prend Vol1 (6 pers)
+
+Reste : 2 places
+
+Peut prendre Vol3 (2 pers)
+
+✅ V1 = 6 + 2 = 8 pers (plein)
+
+V2 (5 places)
+
+Prend Vol2 (4 pers)
+
+Reste : 1 place (non utilisée)
+
+✅ V2 = 4 pers
+
+🗺️ Étape 4 : Routing (ordre des hôtels)
+🚗 V1 (Colbert + Panorama)
+
+Départ : Aéroport
+
+Aéroport → Colbert = 15
+
+Colbert → Panorama = 12
+
+👉 Ordre optimal :
+
+Colbert → Panorama
+
+Distance aller :
+
+= 15 + 12 = 27 km
+
+Distance totale :
+
+👉 règle :
+
+distance = aller * 2
+
+➡️ 27 × 2 = 54 km
+
+🚗 V2 (Ibis seul)
+
+Aéroport → Ibis = 10
+
+Distance aller :
+
+= 10 km
+
+Distance totale :
+
+➡️ 10 × 2 = 20 km
+
+🕐 Étape 5 : Calcul heure d’arrivée
+
+👉 On suppose :
+
+vitesse moyenne = 60 km/h
+
+donc 1 km ≈ 1 min
+
+🚗 V1
+
+Distance aller = 27 km → 27 min
+
+Aller-retour = 54 min
+
+➡️ Heure arrivée :
+
+08:20 + 54 min = 09:14
+
+🚗 V2
+
+Distance aller = 10 km → 10 min
+
+Aller-retour = 20 min
+
+➡️ Heure arrivée :
+
+08:20 + 20 min = 08:40
+
+📊 Résultat final
+Véhicule	Réservations	Heure départ	Distance	Heure arrivée
+V1	Colbert (6), Panorama (2)	08:20	54 km	09:14
+V2	Ibis (4)	08:20	20 km	08:40
+==============================================================================
+
+
 
