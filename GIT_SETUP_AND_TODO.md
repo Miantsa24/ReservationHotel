@@ -290,9 +290,20 @@
 
 #### Dev1 (Back-office) : Tojo ETU003362
 **Créer branche** : `feature/backoffice-sprint5-dev1` à partir de `main`.
-1. **DB & Migration** : Proposer et livrer un fichier de migration SQL (ex: `migrations/2026_03_17_add_vehicule_columns.sql`) qui ajoute : `heure_depart`, `heure_arrivee`, `liste_reservation`, `kilometrage_parcouru` à `vehicules`.
-2. **Models** : Mettre à jour la classe `Vehicule` pour inclure les nouveaux champs.
-3. **DAO** : Mettre à jour `VehiculeDAO` et `ReservationVehiculeDAO` pour lire/écrire ces champs; ajouter méthodes pour stocker/mettre à jour `liste_reservation` (format JSON recommandé) et `kilometrage_parcouru`.
+1. **DB & Migration** : Proposer et livrer un fichier de migration SQL (ex: `migrations/2026_03_17_create_vehicule_trajet.sql`) qui crée une table dédiée `vehicule_trajet` et ajoute une colonne `vehicule_trajet_id` (BIGINT NULL, FK) à `reservation_vehicule`.
+    - Table `vehicule_trajet` (suggestion minimale) :
+       - `id` BIGINT PK AUTO_INCREMENT
+       - `vehicule_id` BIGINT FK -> `vehicules(id)`
+       - `date` DATE
+       - `heure_depart` DATETIME NULL
+       - `heure_arrivee` DATETIME NULL
+       - `liste_reservation` JSON NULL (optionnel pour audit)
+       - `kilometrage_parcouru` DECIMAL(8,2) DEFAULT 0
+       - `created_at` DATETIME, `updated_at` DATETIME
+
+2. **Models** : Ajouter une entité/modèle `VehiculeTrajet` (ou `VehiculeTrip`) et mettre à jour `ReservationVehicule` pour inclure la référence `vehicule_trajet_id`.
+
+3. **DAO** : Créer `VehiculeTrajetDAO` et adapter `ReservationVehiculeDAO` (ajout `setTrajetId` / `findByTrajetId`). `VehiculeDAO` conserve `available_from` comme aujourd'hui — on n'ajoute pas les champs dérivés sur `vehicules`. Préférer la liaison relationnelle (`reservation_vehicule.trajet_id`) pour les requêtes; garder `liste_reservation` JSON dans `vehicule_trajet` uniquement si utile pour audit/affichage.
 4. **Logique de groupement** : Implémenter la logique qui regroupe les réservations dont les heures d'arrivée sont à l'intérieur du `temps_attente` du véhicule (ex: 30 minutes). Le départ du véhicule = heure d'arrivée du dernier vol inclus.
    - Exemple: v1(8), v2(5), temps_attente=30min, vols 8:00(6),8:15(4),8:20(2) → départ 8:20. Assignation doit respecter capacité cumulée.
 5. **Tests unitaires** : Ajouter tests unitaires pour persistance des nouveaux champs et pour la logique de groupement.

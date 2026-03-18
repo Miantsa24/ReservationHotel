@@ -150,7 +150,50 @@ public class ReservationVehiculeDAO {
         rv.setId(rs.getInt("id"));
         rv.setIdReservation(rs.getInt("id_reservation"));
         rv.setIdVehicule(rs.getInt("id_vehicule"));
+        try {
+            int trajetId = rs.getInt("vehicule_trajet_id");
+            if (!rs.wasNull()) rv.setVehiculeTrajetId(trajetId);
+        } catch (SQLException e) {
+            // colonne peut ne pas exister selon schéma; ignorer
+        }
         return rv;
+    }
+
+    /**
+     * Met à jour la colonne `vehicule_trajet_id` pour une ligne `reservation_vehicule` donnée.
+     * trajetId peut être null pour dissocier la réservation d'un trajet.
+     */
+    public void setTrajetId(int reservationVehiculeId, Integer trajetId) throws SQLException {
+        String sql = "UPDATE reservation_vehicule SET vehicule_trajet_id = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            if (trajetId != null) {
+                stmt.setInt(1, trajetId);
+            } else {
+                stmt.setNull(1, Types.INTEGER);
+            }
+            stmt.setInt(2, reservationVehiculeId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Retourne toutes les associations `reservation_vehicule` liées à un trajet donné.
+     */
+    public List<ReservationVehicule> findByTrajetId(int trajetId) throws SQLException {
+        List<ReservationVehicule> list = new ArrayList<>();
+        String sql = "SELECT * FROM reservation_vehicule WHERE vehicule_trajet_id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, trajetId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapResultSet(rs));
+                }
+            }
+        }
+        return list;
     }
 
     private Reservation mapReservationResultSet(ResultSet rs) throws SQLException {
