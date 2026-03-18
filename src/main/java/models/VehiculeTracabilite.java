@@ -17,10 +17,12 @@ public class VehiculeTracabilite {
     private Time heureRetour;
     private double distanceTotale;
     private String parcours;
+    private java.util.List<java.sql.Time> etapeHeures;
 
     public VehiculeTracabilite() {
         this.reservations = new ArrayList<>();
         this.hotels = new ArrayList<>();
+        this.etapeHeures = new ArrayList<>();
     }
 
     // Getters et Setters
@@ -44,4 +46,7 @@ public class VehiculeTracabilite {
 
     public String getParcours() { return parcours; }
     public void setParcours(String parcours) { this.parcours = parcours; }
+
+    public java.util.List<java.sql.Time> getEtapeHeures() { return etapeHeures; }
+    public void setEtapeHeures(java.util.List<java.sql.Time> etapeHeures) { this.etapeHeures = etapeHeures; }
 }

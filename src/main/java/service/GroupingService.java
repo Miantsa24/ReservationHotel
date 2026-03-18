@@ -10,6 +10,8 @@ import models.Vehicule;
 import models.VehiculeTrajet;
 
 import java.sql.Date;
+import java.math.BigDecimal;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -289,6 +291,191 @@ public class GroupingService {
                     vehiculeDAO.updateAvailableFrom(vehiculeId, trajet.getHeureArrivee());
                 }
             }
+        }
+    }
+
+    /**
+     * Compute-only: construit une proposition d'affectation pour une date donnée
+     * sans effectuer de persistance. Retourne un AssignmentProposal détaillant
+     * les groupes, la proposition par réservation et le résumé par véhicule.
+     */
+    public models.AssignmentProposal computeAssignmentsForDate(Date date) throws SQLException {
+        models.AssignmentProposal proposal = new models.AssignmentProposal();
+        proposal.setDate(date);
+
+        List<Group> groups = groupReservationsByDate(date);
+
+        for (Group g : groups) {
+            models.AssignmentProposal.GroupProposal gp = new models.AssignmentProposal.GroupProposal();
+            gp.departureTime = g.departureTime;
+
+            // in-memory assigned capacity per vehicle
+            Map<Integer, Integer> inMemoryAssignedCapacity = new HashMap<>();
+            // map vehicle -> reservations assigned in this group
+            Map<Integer, List<Integer>> assignments = new HashMap<>();
+
+            // sort descending by size
+            g.reservations.sort((a,b) -> Integer.compare(b.getNombrePersonnes(), a.getNombrePersonnes()));
+
+            for (Reservation r : g.reservations) {
+                Reservation tmp = new Reservation();
+                tmp.setId(r.getId());
+                tmp.setDateArrivee(r.getDateArrivee());
+                tmp.setHeureArrivee(g.departureTime);
+                tmp.setNombrePersonnes(r.getNombrePersonnes());
+
+                Vehicule chosen = selectVehicleForTmp(tmp, inMemoryAssignedCapacity);
+                models.AssignmentProposal.ReservationProposal rp = new models.AssignmentProposal.ReservationProposal();
+                rp.reservationId = r.getId();
+                if (chosen != null) {
+                    rp.proposedVehiculeId = chosen.getId();
+                    assignments.computeIfAbsent(chosen.getId(), k -> new ArrayList<>()).add(r.getId());
+                    inMemoryAssignedCapacity.put(chosen.getId(), inMemoryAssignedCapacity.getOrDefault(chosen.getId(), 0) + r.getNombrePersonnes());
+                } else {
+                    rp.proposedVehiculeId = null;
+                    rp.reason = "NO_VEHICLE";
+                }
+                gp.reservations.add(rp);
+            }
+
+            // fill vehicle summaries for this group's assignments
+            for (Map.Entry<Integer, List<Integer>> e : assignments.entrySet()) {
+                Integer vid = e.getKey();
+                List<Integer> rids = e.getValue();
+                models.AssignmentProposal.VehicleSummary vs = proposal.getVehicleSummaries().getOrDefault(vid, new models.AssignmentProposal.VehicleSummary());
+                vs.vehiculeId = vid;
+                vs.reservationIds.addAll(rids);
+                // estimate kilometrage and times using TracabiliteService by loading Reservation objects
+                List<Reservation> assignedResas = new ArrayList<>();
+                for (Integer rid : rids) {
+                    Reservation res = reservationDAO.findById(rid);
+                    if (res != null) assignedResas.add(res);
+                }
+                try {
+                    vs.estimatedKilometrage = tracabiliteService.calculerDistanceTotale(assignedResas);
+                    // Use group's departure time for all vehicles in the group (Sprint-5 rule)
+                    if (g.departureTime != null) {
+                        java.time.LocalDate d = date.toLocalDate();
+                        java.time.LocalDateTime departLdt = java.time.LocalDateTime.of(d, g.departureTime.toLocalTime());
+                        vs.heureDepart = java.sql.Timestamp.valueOf(departLdt);
+                    }
+
+                    // Estimate arrival based on total km and vehicle average speed
+                    models.Vehicule veh = vehiculeDAO.findById(vid);
+                    if (veh != null && vs.estimatedKilometrage > 0 && veh.getVitesseMoyenne() != null
+                            && veh.getVitesseMoyenne().compareTo(BigDecimal.ZERO) != 0) {
+                        double vitesse = veh.getVitesseMoyenne().doubleValue();
+                        double heures = vs.estimatedKilometrage / vitesse;
+                        long ms = (long) (heures * 3600 * 1000);
+                        if (vs.heureDepart != null) {
+                            long arriveeMs = vs.heureDepart.getTime() + ms;
+                            vs.heureArrivee = new java.sql.Timestamp(arriveeMs);
+                        }
+                    } else {
+                        // leave heureArrivee null when we cannot estimate
+                    }
+                } catch (SQLException ex) {
+                    // ignore estimation failures; leave default values
+                }
+                proposal.getVehicleSummaries().put(vid, vs);
+            }
+
+            proposal.getGroups().add(gp);
+        }
+
+        return proposal;
+    }
+
+    /**
+     * Persist a previously computed AssignmentProposal in a single DB transaction.
+     * Writes `reservation_vehicule`, `vehicule_trajet` and updates `reservation_vehicule.vehicule_trajet_id`
+     * and `vehicules.available_from`.
+     */
+    public void persistAssignments(models.AssignmentProposal proposal) throws SQLException {
+        // open a dedicated connection for transactional persistence to avoid
+        // interference with DAOs that open/close the shared connection.
+        String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
+        String user = System.getProperty("db.user", "root");
+        String pass = System.getProperty("db.password", "root");
+        try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
+            boolean previousAuto = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+
+            // PreparedStatements for insertion
+            String insertRvSql = "INSERT INTO reservation_vehicule (id_reservation, id_vehicule) VALUES (?, ?)";
+            String insertTrajetSql = "INSERT INTO vehicule_trajet (vehicule_id, date, heure_depart, heure_arrivee, liste_reservation, kilometrage_parcouru) VALUES (?, ?, ?, ?, ?, ?)";
+            String updateRvTrajetSql = "UPDATE reservation_vehicule SET vehicule_trajet_id = ? WHERE id = ?";
+            String updateVehiculeAvailable = "UPDATE vehicules SET available_from = ? WHERE id = ?";
+
+              try (java.sql.PreparedStatement insertRvStmt = conn.prepareStatement(insertRvSql, java.sql.Statement.RETURN_GENERATED_KEYS);
+                  java.sql.PreparedStatement insertTrajetStmt = conn.prepareStatement(insertTrajetSql, java.sql.Statement.RETURN_GENERATED_KEYS);
+                  java.sql.PreparedStatement updateRvTrajetStmt = conn.prepareStatement(updateRvTrajetSql);
+                  java.sql.PreparedStatement updateVehiculeStmt = conn.prepareStatement(updateVehiculeAvailable);
+                  java.sql.PreparedStatement updateReservationStatusStmt = conn.prepareStatement("UPDATE reservations SET status = ? WHERE id = ?")) {
+
+                // For each vehicle summary, create reservation_vehicule rows, then a vehicule_trajet
+                for (models.AssignmentProposal.VehicleSummary vs : proposal.getVehicleSummaries().values()) {
+                    if (vs.reservationIds.isEmpty()) continue;
+
+                    List<Integer> createdRvIds = new ArrayList<>();
+                    for (Integer rid : vs.reservationIds) {
+                        insertRvStmt.setInt(1, rid);
+                        insertRvStmt.setInt(2, vs.vehiculeId);
+                        insertRvStmt.executeUpdate();
+                        try (java.sql.ResultSet gk = insertRvStmt.getGeneratedKeys()) {
+                            if (gk.next()) createdRvIds.add(gk.getInt(1));
+                        }
+                        // mark reservation ASSIGNE using the same transactional connection
+                        updateReservationStatusStmt.setString(1, "ASSIGNE");
+                        updateReservationStatusStmt.setInt(2, rid);
+                        updateReservationStatusStmt.executeUpdate();
+                    }
+
+                    // build JSON list of reservations
+                    StringBuilder sb = new StringBuilder();
+                    sb.append('[');
+                    for (int i = 0; i < vs.reservationIds.size(); i++) {
+                        if (i > 0) sb.append(','); sb.append(vs.reservationIds.get(i));
+                    }
+                    sb.append(']');
+
+                    // insert trajet
+                    insertTrajetStmt.setInt(1, vs.vehiculeId);
+                    insertTrajetStmt.setDate(2, proposal.getDate());
+                    insertTrajetStmt.setTimestamp(3, vs.heureDepart);
+                    insertTrajetStmt.setTimestamp(4, vs.heureArrivee);
+                    insertTrajetStmt.setString(5, sb.toString());
+                    insertTrajetStmt.setDouble(6, vs.estimatedKilometrage);
+                    insertTrajetStmt.executeUpdate();
+                    int trajetId = 0;
+                    try (java.sql.ResultSet gk2 = insertTrajetStmt.getGeneratedKeys()) {
+                        if (gk2.next()) trajetId = gk2.getInt(1);
+                    }
+
+                    // update reservation_vehicule rows to reference trajet
+                    for (Integer createdRvId : createdRvIds) {
+                        updateRvTrajetStmt.setInt(1, trajetId);
+                        updateRvTrajetStmt.setInt(2, createdRvId);
+                        updateRvTrajetStmt.executeUpdate();
+                    }
+
+                    // update vehicule.available_from if heureArrivee present
+                    if (vs.heureArrivee != null) {
+                        updateVehiculeStmt.setTimestamp(1, vs.heureArrivee);
+                        updateVehiculeStmt.setInt(2, vs.vehiculeId);
+                        updateVehiculeStmt.executeUpdate();
+                    }
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(previousAuto);
+            }
+
+            // connection closed by try-with-resources
         }
     }
 }

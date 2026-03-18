@@ -11,6 +11,10 @@ import dao.TokenDAO;
 import dao.ConfigReader;
 import models.Reservation;
 import service.AssignationService;
+import service.GroupingService;
+import models.AssignmentProposal;
+
+import java.sql.SQLException;
 
 import java.sql.Date;
 import java.sql.Time;
@@ -23,6 +27,8 @@ public class AssignationController {
     private ReservationDAO reservationDAO = new ReservationDAO();
     private TokenDAO tokenDAO = new TokenDAO();
     private AssignationService assignationService = new AssignationService();
+    private GroupingService groupingService = new GroupingService();
+    private dao.VehiculeDAO vehiculeDAO = new dao.VehiculeDAO();
 
     @GetMapping("/assignations")
     public ModelView listDates() {
@@ -31,7 +37,7 @@ public class AssignationController {
 
         ModelView mv = new ModelView("/WEB-INF/views/assignation-list.jsp");
         try {
-            List<Date> dates = reservationDAO.findDistinctDatesByStatus("EN_ATTENTE");
+            java.util.List<java.sql.Date> dates = reservationDAO.findDistinctDatesByStatus("EN_ATTENTE");
             mv.addItem("dates", dates);
         } catch (Exception e) {
             mv.addItem("error", "Erreur: " + e.getMessage());
@@ -47,9 +53,142 @@ public class AssignationController {
         ModelView mv = new ModelView("/WEB-INF/views/assignation-hours.jsp");
         try {
             Date date = Date.valueOf(dateStr);
-            List<Time> hours = reservationDAO.findDistinctHoursByDateAndStatus(date, "EN_ATTENTE");
+            java.util.List<service.GroupingService.Group> groups = groupingService.groupReservationsByDate(date);
             mv.addItem("date", dateStr);
-            mv.addItem("hours", hours);
+            mv.addItem("groups", groups);
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    @GetMapping("/assignations/computeGroup")
+    public ModelView computeGroup(@RequestParam("date") String dateStr, @RequestParam("index") int groupIndex) {
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/assignation-proposal-modal.jsp");
+        try {
+            java.sql.Date date = java.sql.Date.valueOf(dateStr);
+            models.AssignmentProposal proposal = groupingService.computeAssignmentsForDate(date);
+            mv.addItem("proposal", proposal);
+            mv.addItem("groupIndex", groupIndex);
+            mv.addItem("date", dateStr);
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur lors du calcul de la proposition: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    @GetMapping("/assignations/group")
+    public ModelView groupDetail(@RequestParam("date") String dateStr, @RequestParam("index") int groupIndex) {
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/assignation-detail.jsp");
+        try {
+            java.sql.Date date = java.sql.Date.valueOf(dateStr);
+            AssignmentProposal proposal = groupingService.computeAssignmentsForDate(date);
+            if (proposal == null) {
+                mv.addItem("error", "Aucune proposition disponible pour cette date");
+                return mv;
+            }
+            if (groupIndex < 0 || groupIndex >= proposal.getGroups().size()) {
+                mv.addItem("error", "Groupe invalide");
+                return mv;
+            }
+            AssignmentProposal.GroupProposal gp = proposal.getGroups().get(groupIndex);
+
+            // compute human-readable time range: first arrival - departureTime
+            String heureRange = "—";
+            try {
+                if (gp != null && gp.reservations != null && !gp.reservations.isEmpty()) {
+                    int rid = gp.reservations.get(0).reservationId;
+                    Reservation r = reservationDAO.findById(rid);
+                    if (r != null && r.getHeureArrivee() != null) {
+                        String first = r.getHeureArrivee().toString();
+                        if (first.length() >= 5) first = first.substring(0,5);
+                        heureRange = first;
+                    }
+                }
+                if (gp != null && gp.departureTime != null) {
+                    String dep = gp.departureTime.toString();
+                    if (dep.length() >=5) dep = dep.substring(0,5);
+                    heureRange = (heureRange.equals("—") ? dep : heureRange + " - " + dep);
+                }
+            } catch (Exception ex) { /* ignore formatting errors */ }
+
+            mv.addItem("date", dateStr);
+            mv.addItem("heure", heureRange);
+            mv.addItem("proposal", proposal);
+            mv.addItem("groupIndex", groupIndex);
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    @PostMapping("/assignations/confirmGroup")
+    public ModelView confirmGroup(@RequestParam("date") String dateStr, @RequestParam("index") int groupIndex) {
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/assignation-result.jsp");
+        try {
+            java.sql.Date date = java.sql.Date.valueOf(dateStr);
+            models.AssignmentProposal full = groupingService.computeAssignmentsForDate(date);
+
+            // validate group index
+            if (groupIndex < 0 || groupIndex >= full.getGroups().size()) {
+                mv.addItem("error", "Groupe invalide");
+                return mv;
+            }
+
+            models.AssignmentProposal.GroupProposal gp = full.getGroups().get(groupIndex);
+
+            // Build sub-proposal containing only vehicle summaries for this group
+            models.AssignmentProposal sub = new models.AssignmentProposal();
+            sub.setDate(full.getDate());
+
+            // collect vehicle ids used in this group from reservation proposals
+            java.util.Set<Integer> vehicleIds = new java.util.HashSet<>();
+            for (models.AssignmentProposal.ReservationProposal rp : gp.reservations) {
+                if (rp.proposedVehiculeId != null) vehicleIds.add(rp.proposedVehiculeId);
+            }
+
+            // copy relevant vehicle summaries
+            for (Integer vid : vehicleIds) {
+                models.AssignmentProposal.VehicleSummary vs = full.getVehicleSummaries().get(vid);
+                if (vs != null) sub.getVehicleSummaries().put(vid, vs);
+            }
+
+            // Optimistic checks: reservations still EN_ATTENTE and vehicles available
+            for (models.AssignmentProposal.VehicleSummary vs : sub.getVehicleSummaries().values()) {
+                // check reservations
+                for (Integer rid : vs.reservationIds) {
+                    models.Reservation r = reservationDAO.findById(rid);
+                    if (r == null || r.getStatus() == null || !"EN_ATTENTE".equals(r.getStatus())) {
+                        mv.addItem("error", "Échec: la réservation #" + rid + " n'est plus en statut EN_ATTENTE.");
+                        return mv;
+                    }
+                }
+                // check vehicle availability
+                models.Vehicule v = vehiculeDAO.findById(vs.vehiculeId);
+                if (v != null && v.getAvailableFrom() != null && vs.heureDepart != null) {
+                    if (v.getAvailableFrom().after(vs.heureDepart)) {
+                        mv.addItem("error", "Échec: le véhicule #" + vs.vehiculeId + " n'est pas disponible pour ce créneau.");
+                        return mv;
+                    }
+                }
+            }
+
+            // Persist sub-proposal atomically
+            groupingService.persistAssignments(sub);
+            mv.addItem("resultMessage", "Assignations du groupe persistées avec succès.");
+            mv.addItem("proposal", sub);
+            return mv;
+        } catch (SQLException e) {
+            mv.addItem("error", "Erreur lors de la persistance: " + e.getMessage());
         } catch (Exception e) {
             mv.addItem("error", "Erreur: " + e.getMessage());
         }
@@ -88,6 +227,51 @@ public class AssignationController {
             mv.addItem("result", res);
         } catch (Exception e) {
             mv.addItem("error", "Erreur lors de l'assignation: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    @GetMapping("/assignations/compute")
+    public ModelView computeCreneau(@RequestParam("date") String dateStr, @RequestParam("heure") String heureStr) {
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/assignation-detail.jsp");
+        try {
+            java.sql.Date date = java.sql.Date.valueOf(dateStr);
+            java.sql.Time time = java.sql.Time.valueOf(heureStr);
+            // compute proposal server-side (no DB writes)
+            AssignmentProposal proposal = groupingService.computeAssignmentsForDate(date);
+            mv.addItem("date", dateStr);
+            mv.addItem("heure", heureStr);
+            mv.addItem("proposal", proposal);
+        } catch (SQLException e) {
+            mv.addItem("error", "Erreur lors du calcul de la proposition: " + e.getMessage());
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    @PostMapping("/assignations/confirm")
+    public ModelView confirmCreneau(@RequestParam("date") String dateStr, @RequestParam("heure") String heureStr) {
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/assignation-result.jsp");
+        try {
+            java.sql.Date date = java.sql.Date.valueOf(dateStr);
+            java.sql.Time time = java.sql.Time.valueOf(heureStr);
+            // Recompute proposal to avoid trusting client-sent payload and to ensure freshness
+            AssignmentProposal proposal = groupingService.computeAssignmentsForDate(date);
+            // Persist computed proposal in an atomic transaction
+            groupingService.persistAssignments(proposal);
+            mv.addItem("resultMessage", "Assignations persistées avec succès.");
+            mv.addItem("proposal", proposal);
+        } catch (SQLException e) {
+            mv.addItem("error", "Erreur lors de la persistance: " + e.getMessage());
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
         }
         return mv;
     }

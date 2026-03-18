@@ -69,6 +69,7 @@ public class HotelRoutingService {
 
         // Si aucune distance trouvée pour tous les candidats, fallback alphabétique
         if (meilleur == null) {
+            System.err.println("[HotelRoutingService] Aucune distance trouvée depuis '" + from + "' vers candidats: " + candidats);
             meilleur = candidats.stream().sorted().findFirst().orElse(candidats.get(0));
         }
 
