@@ -4,6 +4,7 @@ public class ReservationVehicule {
     private int id;
     private int idReservation;
     private int idVehicule;
+    private Integer vehiculeTrajetId; // Nullable FK to vehicule_trajet
 
     // Constructeurs
     public ReservationVehicule() {}
@@ -12,6 +13,9 @@ public class ReservationVehicule {
         this.idReservation = idReservation;
         this.idVehicule = idVehicule;
     }
+
+    public Integer getVehiculeTrajetId() { return vehiculeTrajetId; }
+    public void setVehiculeTrajetId(Integer vehiculeTrajetId) { this.vehiculeTrajetId = vehiculeTrajetId; }
 
     // Getters et Setters
     public int getId() { return id; }

@@ -41,6 +41,23 @@ CREATE TABLE IF NOT EXISTS vehicules (
 );
 
 -- =============================================
+-- Table des trajets / traceabilité des véhicules
+-- =============================================
+CREATE TABLE IF NOT EXISTS vehicule_trajet (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    vehicule_id INT NOT NULL,
+    date DATE NOT NULL,
+    heure_depart DATETIME NULL,
+    heure_arrivee DATETIME NULL,
+    liste_reservation JSON NULL,
+    kilometrage_parcouru DECIMAL(8,2) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_vehicule_trajet_vehicule (vehicule_id),
+    CONSTRAINT fk_vehicule_trajet_vehicule FOREIGN KEY (vehicule_id) REFERENCES vehicules(id) ON DELETE CASCADE
+);
+
+-- =============================================
 -- Table des tokens
 -- =============================================
 CREATE TABLE IF NOT EXISTS tokens (
@@ -67,8 +84,10 @@ CREATE TABLE IF NOT EXISTS reservation_vehicule (
     id INT PRIMARY KEY AUTO_INCREMENT,
     id_reservation INT NOT NULL,
     id_vehicule INT NOT NULL,
+    vehicule_trajet_id INT NULL,
     FOREIGN KEY (id_reservation) REFERENCES reservations(id) ON DELETE CASCADE,
-    FOREIGN KEY (id_vehicule) REFERENCES vehicules(id) ON DELETE CASCADE
+    FOREIGN KEY (id_vehicule) REFERENCES vehicules(id) ON DELETE CASCADE,
+    FOREIGN KEY (vehicule_trajet_id) REFERENCES vehicule_trajet(id) ON DELETE SET NULL
 );
 
 ALTER TABLE vehicules
