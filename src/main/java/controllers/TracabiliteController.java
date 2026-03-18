@@ -9,6 +9,7 @@ import src.RequestParam;
 import dao.ReservationDAO;
 import dao.ReservationVehiculeDAO;
 import dao.VehiculeDAO;
+import dao.VehiculeTrajetDAO;
 import dao.HotelDAO;
 import models.Reservation;
 import models.ReservationVehicule;
@@ -28,6 +29,7 @@ public class TracabiliteController {
     private ReservationDAO reservationDAO = new ReservationDAO();
     private ReservationVehiculeDAO reservationVehiculeDAO = new ReservationVehiculeDAO();
     private VehiculeDAO vehiculeDAO = new VehiculeDAO();
+    private VehiculeTrajetDAO vehiculeTrajetDAO = new VehiculeTrajetDAO();
     private HotelDAO hotelDAO = new HotelDAO();
     private TracabiliteService tracabiliteService = new TracabiliteService();
     private HotelRoutingService hotelRoutingService = new HotelRoutingService();
@@ -110,33 +112,64 @@ public class TracabiliteController {
                 sb.append(" -> Aéroport");
                 vt.setParcours(sb.toString());
 
-                // Heure de départ et de retour
-                vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));
-                java.sql.Time heureRetour = tracabiliteService.calculerHeureRetour(vehicule, resasVehicule);
-                if (heureRetour == null) {
-                    // fallback: prefer vehicule.available_from if present
-                    try {
-                        java.sql.Timestamp av = vehiculeDAO.findAvailableFrom(vehicule.getId());
-                        if (av != null) {
-                            heureRetour = new java.sql.Time(av.getTime());
-                        } else {
-                            // fallback: latest reservation heure_arrivee + 2 hours
-                            java.time.LocalTime latest = resasVehicule.stream()
-                                    .map(Reservation::getHeureArrivee)
-                                    .filter(Objects::nonNull)
-                                    .map(java.sql.Time::toLocalTime)
-                                    .max(Comparator.naturalOrder())
-                                    .orElse(java.time.LocalTime.MIDNIGHT);
-                            java.time.LocalDate dateLocal = dateSql.toLocalDate();
-                            java.time.LocalDateTime ldt = java.time.LocalDateTime.of(dateLocal, latest).plusHours(2);
-                            heureRetour = new java.sql.Time(java.sql.Timestamp.valueOf(ldt).getTime());
+                // Prefer persisted trajet info (heure_depart set at persist time) when present
+                try {
+                    java.util.List<models.VehiculeTrajet> trajets = vehiculeTrajetDAO.findByVehiculeIdAndDate(idVehicule, dateSql);
+                    if (trajets != null && !trajets.isEmpty()) {
+                        // pick the first trajet with a non-null heure_depart, else first
+                        models.VehiculeTrajet chosen = null;
+                        for (models.VehiculeTrajet t : trajets) {
+                            if (t.getHeureDepart() != null) { chosen = t; break; }
                         }
-                    } catch (Exception ex) {
-                        // ignore and leave heureRetour null
+                        if (chosen == null) chosen = trajets.get(0);
+                        if (chosen.getHeureDepart() != null) vt.setHeureDepart(new java.sql.Time(chosen.getHeureDepart().getTime()));
+                        if (chosen.getHeureArrivee() != null) vt.setHeureRetour(new java.sql.Time(chosen.getHeureArrivee().getTime()));
+                        vt.setDistanceTotale(chosen.getKilometrageParcouru());
+                    } else {
+                        // fallback to computed values
+                        vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));
+                        java.sql.Time heureRetour = tracabiliteService.calculerHeureRetour(vehicule, resasVehicule);
+                        if (heureRetour == null) {
+                            // fallback: prefer vehicule.available_from if present
+                            try {
+                                java.sql.Timestamp av = vehiculeDAO.findAvailableFrom(vehicule.getId());
+                                if (av != null) {
+                                    heureRetour = new java.sql.Time(av.getTime());
+                                } else {
+                                    // fallback: latest reservation heure_arrivee + 2 hours
+                                    java.time.LocalTime latest = resasVehicule.stream()
+                                            .map(Reservation::getHeureArrivee)
+                                            .filter(Objects::nonNull)
+                                            .map(java.sql.Time::toLocalTime)
+                                            .max(Comparator.naturalOrder())
+                                            .orElse(java.time.LocalTime.MIDNIGHT);
+                                    java.time.LocalDate dateLocal = dateSql.toLocalDate();
+                                    java.time.LocalDateTime ldt = java.time.LocalDateTime.of(dateLocal, latest).plusHours(2);
+                                    heureRetour = new java.sql.Time(java.sql.Timestamp.valueOf(ldt).getTime());
+                                }
+                            } catch (Exception ex) {
+                                // ignore and leave heureRetour null
+                            }
+                        }
+                        vt.setHeureRetour(heureRetour);
+                        // set distance if not set by trajet
+                        vt.setDistanceTotale(tracabiliteService.calculerDistanceTotale(resasVehicule));
                     }
+                } catch (SQLException ex) {
+                    // on DB error, fallback to computed approach
+                    vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));
+                    try { vt.setHeureRetour(tracabiliteService.calculerHeureRetour(vehicule, resasVehicule)); } catch (SQLException s) { /* ignore */ }
+                    try { vt.setDistanceTotale(tracabiliteService.calculerDistanceTotale(resasVehicule)); } catch (SQLException s) { /* ignore */ }
                 }
-                vt.setHeureRetour(heureRetour);
-                vt.setDistanceTotale(tracabiliteService.calculerDistanceTotale(resasVehicule));
+
+                // Compute per-step arrival times from group's departure using vehicle speed
+                try {
+                    java.util.List<java.sql.Time> etapes = tracabiliteService.calculerHeuresParcours(hotelsOrdonnes, vt.getHeureDepart(), vehicule);
+                    vt.setEtapeHeures(etapes);
+                    // If heureDepart is null but we can compute from vehicle.availableFrom, try that
+                } catch (Exception ex) {
+                    // ignore
+                }
 
                 tracabilites.add(vt);
             }

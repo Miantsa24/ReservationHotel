@@ -48,7 +48,12 @@ public class AssignationService {
             // Compute initial free capacities per vehicle for this date+time
             Map<Integer, Integer> freeCap = new HashMap<>();
             Map<Integer, Vehicule> vehiculeById = new HashMap<>();
-            java.sql.Timestamp reservationTs = new java.sql.Timestamp(date.getTime() + heure.getTime());
+            java.sql.Timestamp reservationTs = null;
+            if (date != null && heure != null) {
+                java.time.LocalDate ld = date.toLocalDate();
+                java.time.LocalTime lt = heure.toLocalTime();
+                reservationTs = java.sql.Timestamp.valueOf(java.time.LocalDateTime.of(ld, lt));
+            }
 
             Map<Integer,Integer> occupiedMap = new HashMap<>();
             for (Vehicule v : vehicules) {

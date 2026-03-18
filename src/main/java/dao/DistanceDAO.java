@@ -2,6 +2,7 @@ package dao;
 
 import models.Distance;
 import java.sql.*;
+import java.text.Normalizer;
 
 public class DistanceDAO {
 
@@ -40,6 +41,38 @@ public class DistanceDAO {
      */
     public double getKm(String from, String to) throws SQLException {
         Distance distance = getDistance(from, to);
-        return distance != null ? distance.getKm() : Double.POSITIVE_INFINITY;
+        if (distance != null) return distance.getKm();
+
+        // Fallback: try accent-insensitive / encoding-robust match by normalizing DB values
+        String normFrom = normalizeName(from);
+        String normTo = normalizeName(to);
+
+        String sql = "SELECT `from`, `to`, km FROM distance";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                String dbFrom = rs.getString("from");
+                String dbTo = rs.getString("to");
+                double km = rs.getDouble("km");
+                String nDbFrom = normalizeName(dbFrom);
+                String nDbTo = normalizeName(dbTo);
+                if ((nDbFrom.equals(normFrom) && nDbTo.equals(normTo)) || (nDbFrom.equals(normTo) && nDbTo.equals(normFrom))) {
+                    return km;
+                }
+            }
+        }
+
+        return Double.POSITIVE_INFINITY;
+    }
+
+    private String normalizeName(String s) {
+        if (s == null) return "";
+        String n = Normalizer.normalize(s, Normalizer.Form.NFD);
+        // remove diacritics
+        n = n.replaceAll("\\p{M}", "");
+        // keep only letters and digits
+        n = n.replaceAll("[^A-Za-z0-9]", "").toLowerCase();
+        return n;
     }
 }

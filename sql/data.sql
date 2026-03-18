@@ -23,12 +23,12 @@ INSERT INTO hotels (id, nom, code) VALUES
 -- Insertion des distances (une seule entrée par paire, bidirectionnalité gérée côté code)
 -- =============================================
 INSERT INTO distance (`from`, `to`, km) VALUES
-   ('Aéroport', 'Colbert', 10.00),
-   ('Aéroport', 'Hotel1', 50.00),
-   ('Aéroport', 'Novotel', 20.00),
-   ('Aéroport', 'Ibis', 10.00),
-   ('Aéroport', 'Lokanga', 25.00),
-   ('Aéroport', 'Trano', 30.00),
+   ('Aeroport', 'Colbert', 10.00),
+   ('Aeroport', 'Hotel1', 50.00),
+   ('Aeroport', 'Novotel', 20.00),
+   ('Aeroport', 'Ibis', 10.00),
+   ('Aeroport', 'Lokanga', 25.00),
+   ('Aeroport', 'Trano', 30.00),
    ('Colbert', 'Novotel', 8.00),
    ('Colbert', 'Ibis', 6.00),
    ('Colbert', 'Lokanga', 12.00),
