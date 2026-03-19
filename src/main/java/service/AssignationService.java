@@ -76,6 +76,7 @@ public class AssignationService {
             }
 
             Random rand = new Random();
+            Set<Integer> vehiculesAssignes = new HashSet<>();
 
             for (Reservation r : reservations) {
                 int personnes = r.getNombrePersonnes();
@@ -150,6 +151,7 @@ public class AssignationService {
                 reservationVehiculeDAO.save(rv);
                 reservationDAO.updateStatus(r.getId(), "ASSIGNE");
                 assigned++;
+                vehiculesAssignes.add(chosen.getId());
 
                 // update free capacity in memory
                 int newFree = freeCap.get(chosen.getId()) - personnes;
@@ -192,6 +194,10 @@ public class AssignationService {
                         }
                         if (ts != null) {
                             vehiculeDAO.updateAvailableFrom(vid, ts);
+                            // Incrémenter trajetsEffectues si ce véhicule a reçu de nouvelles assignations
+                            if (vehiculesAssignes.contains(vid)) {
+                                vehiculeDAO.incrementTrajetsEffectues(vid);
+                            }
                         }
                     }
                 } catch (Exception ex) {
