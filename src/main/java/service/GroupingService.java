@@ -338,6 +338,30 @@ public class GroupingService {
                 gp.reservations.add(rp);
             }
 
+            // Compute actual departure time: last assigned reservation's arrival time
+            // If the last reservation in the group is non-assigned, use the last assigned one
+            Time actualDepartureTime = null;
+            for (Reservation r : g.reservations) {
+                // Check if this reservation is assigned (has a vehicle)
+                boolean isAssigned = false;
+                for (models.AssignmentProposal.ReservationProposal rp : gp.reservations) {
+                    if (rp.reservationId == r.getId() && rp.proposedVehiculeId != null) {
+                        isAssigned = true;
+                        break;
+                    }
+                }
+                if (isAssigned) {
+                    // Update actualDepartureTime to the latest assigned reservation's arrival time
+                    if (actualDepartureTime == null || r.getHeureArrivee().after(actualDepartureTime)) {
+                        actualDepartureTime = r.getHeureArrivee();
+                    }
+                }
+            }
+            // Update group departure time for display
+            if (actualDepartureTime != null) {
+                gp.departureTime = actualDepartureTime;
+            }
+
             // fill vehicle summaries for this group's assignments
             for (Map.Entry<Integer, List<Integer>> e : assignments.entrySet()) {
                 Integer vid = e.getKey();
@@ -353,10 +377,10 @@ public class GroupingService {
                 }
                 try {
                     vs.estimatedKilometrage = tracabiliteService.calculerDistanceTotale(assignedResas);
-                    // Use group's departure time for all vehicles in the group (Sprint-5 rule)
-                    if (g.departureTime != null) {
+                    // Use actual departure time (last assigned reservation's arrival time)
+                    if (actualDepartureTime != null) {
                         java.time.LocalDate d = date.toLocalDate();
-                        java.time.LocalDateTime departLdt = java.time.LocalDateTime.of(d, g.departureTime.toLocalTime());
+                        java.time.LocalDateTime departLdt = java.time.LocalDateTime.of(d, actualDepartureTime.toLocalTime());
                         vs.heureDepart = java.sql.Timestamp.valueOf(departLdt);
                     }
 
@@ -396,7 +420,7 @@ public class GroupingService {
         // interference with DAOs that open/close the shared connection.
         String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
         String user = System.getProperty("db.user", "root");
-        String pass = System.getProperty("db.password", "root");
+        String pass = System.getProperty("db.password", "");
         try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
             boolean previousAuto = conn.getAutoCommit();
             conn.setAutoCommit(false);
@@ -412,6 +436,17 @@ public class GroupingService {
                   java.sql.PreparedStatement updateRvTrajetStmt = conn.prepareStatement(updateRvTrajetSql);
                   java.sql.PreparedStatement updateVehiculeStmt = conn.prepareStatement(updateVehiculeAvailable);
                   java.sql.PreparedStatement updateReservationStatusStmt = conn.prepareStatement("UPDATE reservations SET status = ? WHERE id = ?")) {
+
+                // First, update status for non-assigned reservations (proposedVehiculeId == null)
+                for (models.AssignmentProposal.GroupProposal gp : proposal.getGroups()) {
+                    for (models.AssignmentProposal.ReservationProposal rp : gp.reservations) {
+                        if (rp.proposedVehiculeId == null) {
+                            updateReservationStatusStmt.setString(1, "NON_ASSIGNE");
+                            updateReservationStatusStmt.setInt(2, rp.reservationId);
+                            updateReservationStatusStmt.executeUpdate();
+                        }
+                    }
+                }
 
                 // For each vehicle summary, create reservation_vehicule rows, then a vehicule_trajet
                 for (models.AssignmentProposal.VehicleSummary vs : proposal.getVehicleSummaries().values()) {

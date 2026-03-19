@@ -16,27 +16,6 @@
     <title>Détail du créneau</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <%@ include file="includes/assignation-styles.jsp" %>
-    <!-- Fallback styles (harmonized with central variables) in case the main include is missing -->
-    <style id="fallback-assignation-detail">
-        :root{ --primary-color:#4299e1; --primary-dark:#3182ce; --text-primary:#1e293b; --text-secondary:#64748b; --card-bg:#ffffff; --border-radius:12px; }
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);color:var(--text-primary);line-height:1.5}
-        .app-layout{display:flex;gap:24px;max-width:1200px;margin:0 auto;padding:20px}
-        .main-content{flex:1}
-        .card{background:var(--card-bg);padding:20px;border-radius:var(--border-radius);border:1px solid rgba(0,0,0,0.04)}
-        .page-title{font-size:28px;font-weight:800;color:var(--primary-dark);margin-bottom:8px}
-        .page-subtitle{color:var(--text-secondary);font-size:14px}
-        .breadcrumb{display:flex;gap:8px;color:var(--text-secondary);margin-bottom:16px}
-        .table-container table{width:100%;border-collapse:collapse;background:transparent}
-        .table-container th,.table-container td{padding:10px;border-bottom:1px solid rgba(0,0,0,0.04);text-align:left}
-        .vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
-        .vehicle-card{background:var(--card-bg);border-radius:10px;padding:12px;box-shadow:0 4px 10px rgba(0,0,0,0.04)}
-        .reservation-chip{display:inline-flex;gap:6px;padding:6px 8px;border-radius:999px;background:rgba(0,0,0,0.03);margin-right:6px;margin-bottom:6px}
-        .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;border:none;cursor:pointer}
-        .btn-primary{background:linear-gradient(135deg,var(--primary-color) 0%,var(--primary-dark) 100%);color:#fff}
-        .btn-secondary{background:rgba(66,153,225,0.08);color:var(--primary-dark)}
-        @media (max-width:900px){.app-layout{flex-direction:column;padding:12px}.vehicle-grid{grid-template-columns:1fr}}
-    </style>
 </head>
 <body>
     <div class="app-layout">
