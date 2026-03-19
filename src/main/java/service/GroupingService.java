@@ -473,11 +473,12 @@ public class GroupingService {
             String updateRvTrajetSql = "UPDATE reservation_vehicule SET vehicule_trajet_id = ? WHERE id = ?";
             String updateVehiculeAvailable = "UPDATE vehicules SET available_from = ? WHERE id = ?";
 
-              try (java.sql.PreparedStatement insertRvStmt = conn.prepareStatement(insertRvSql, java.sql.Statement.RETURN_GENERATED_KEYS);
-                  java.sql.PreparedStatement insertTrajetStmt = conn.prepareStatement(insertTrajetSql, java.sql.Statement.RETURN_GENERATED_KEYS);
-                  java.sql.PreparedStatement updateRvTrajetStmt = conn.prepareStatement(updateRvTrajetSql);
-                  java.sql.PreparedStatement updateVehiculeStmt = conn.prepareStatement(updateVehiculeAvailable);
-                  java.sql.PreparedStatement updateReservationStatusStmt = conn.prepareStatement("UPDATE reservations SET status = ? WHERE id = ?")) {
+                                try (java.sql.PreparedStatement insertRvStmt = conn.prepareStatement(insertRvSql, java.sql.Statement.RETURN_GENERATED_KEYS);
+                                    java.sql.PreparedStatement insertTrajetStmt = conn.prepareStatement(insertTrajetSql, java.sql.Statement.RETURN_GENERATED_KEYS);
+                                    java.sql.PreparedStatement updateRvTrajetStmt = conn.prepareStatement(updateRvTrajetSql);
+                                    java.sql.PreparedStatement updateVehiculeStmt = conn.prepareStatement(updateVehiculeAvailable);
+                                    java.sql.PreparedStatement updateReservationStatusStmt = conn.prepareStatement("UPDATE reservations SET status = ? WHERE id = ?");
+                                    java.sql.PreparedStatement updateTrajetsEffectuesStmt = conn.prepareStatement("UPDATE vehicules SET trajets_effectues = trajets_effectues + 1 WHERE id = ?")) {
 
                 // First, update status for non-assigned reservations (proposedVehiculeId == null)
                 for (models.AssignmentProposal.GroupProposal gp : proposal.getGroups()) {
@@ -541,6 +542,15 @@ public class GroupingService {
                         updateVehiculeStmt.setTimestamp(1, vs.heureArrivee);
                         updateVehiculeStmt.setInt(2, vs.vehiculeId);
                         updateVehiculeStmt.executeUpdate();
+                    }
+
+                    // increment trajets_effectues counter for the vehicle
+                    try {
+                        updateTrajetsEffectuesStmt.setInt(1, vs.vehiculeId);
+                        updateTrajetsEffectuesStmt.executeUpdate();
+                    } catch (SQLException se) {
+                        // Non critique : log and continuer
+                        System.err.println("Warning: failed to increment trajets_effectues for vehicule " + vs.vehiculeId + ": " + se.getMessage());
                     }
                 }
 
