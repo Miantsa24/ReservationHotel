@@ -102,4 +102,7 @@ CREATE INDEX idx_reservations_date_heure ON reservations (date_arrivee, heure_ar
 -- Index optionnel pour filtrer rapidement les réservations en attente
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations (status);
 
+ALTER TABLE `vehicules` 
+   ADD COLUMN `trajets_effectues` INT DEFAULT 0;
+
 

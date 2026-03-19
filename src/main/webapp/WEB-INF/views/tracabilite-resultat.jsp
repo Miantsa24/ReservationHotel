@@ -75,6 +75,7 @@
                                     <span class="tag tag-capacite">👤 <%= vt.getVehicule().getCapacite() %> places</span>
                                     <span class="tag tag-carburant">⛽ <%= vt.getVehicule().getTypeCarburant() %></span>
                                     <span class="tag tag-vitesse">⚡ <%= vt.getVehicule().getVitesseMoyenne() %> km/h</span>
+                                    <span class="tag tag-trajets">🚏 <%= vt.getVehicule().getTrajetsEffectues() %> trajets</span>
                                 </div>
                             </div>
 

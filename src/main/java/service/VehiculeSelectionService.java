@@ -151,9 +151,25 @@ public class VehiculeSelectionService {
             return meilleurCapacite.get(0);
         }
 
-        // Règle 2 : Priorité carburant
-        int meilleurePriorite = Integer.MAX_VALUE;
+        // Nouvelle étape (Sprint6 Dev2) : parmi ceux qui ont la meilleure capacité,
+        // garder uniquement les véhicules ayant le moins de "trajetsEffectues".
+        int minTrajets = Integer.MAX_VALUE;
         for (Vehicule v : meilleurCapacite) {
+            if (v.getTrajetsEffectues() < minTrajets) minTrajets = v.getTrajetsEffectues();
+        }
+        List<Vehicule> meilleurTrajets = new ArrayList<>();
+        for (Vehicule v : meilleurCapacite) {
+            if (v.getTrajetsEffectues() == minTrajets) {
+                meilleurTrajets.add(v);
+            }
+        }
+        if (meilleurTrajets.size() == 1) {
+            return meilleurTrajets.get(0);
+        }
+
+        // Règle 2 : Priorité carburant (appliquée sur le sous-ensemble filtré par trajets)
+        int meilleurePriorite = Integer.MAX_VALUE;
+        for (Vehicule v : meilleurTrajets) {
             int prio = getPrioriteCarburant(v.getTypeCarburant());
             if (prio < meilleurePriorite) {
                 meilleurePriorite = prio;
@@ -161,7 +177,7 @@ public class VehiculeSelectionService {
         }
 
         List<Vehicule> meilleurCarburant = new ArrayList<>();
-        for (Vehicule v : meilleurCapacite) {
+        for (Vehicule v : meilleurTrajets) {
             if (getPrioriteCarburant(v.getTypeCarburant()) == meilleurePriorite) {
                 meilleurCarburant.add(v);
             }
@@ -271,15 +287,28 @@ public class VehiculeSelectionService {
 
         if (meilleurCapacite.size() == 1) return meilleurCapacite.get(0);
 
-        // Règle 2: Priorité carburant
-        int meilleurePriorite = Integer.MAX_VALUE;
+        // Nouvelle étape (Sprint6 Dev2) : filtrer par trajetsEffectues (préférence pour le plus petit)
+        int minTrajets = Integer.MAX_VALUE;
         for (Vehicule v : meilleurCapacite) {
+            if (v.getTrajetsEffectues() < minTrajets) minTrajets = v.getTrajetsEffectues();
+        }
+        List<Vehicule> meilleurTrajets = new ArrayList<>();
+        for (Vehicule v : meilleurCapacite) {
+            if (v.getTrajetsEffectues() == minTrajets) {
+                meilleurTrajets.add(v);
+            }
+        }
+        if (meilleurTrajets.size() == 1) return meilleurTrajets.get(0);
+
+        // Règle suivante : priorité carburant appliquée sur le sous-ensemble filtré
+        int meilleurePriorite = Integer.MAX_VALUE;
+        for (Vehicule v : meilleurTrajets) {
             int prio = getPrioriteCarburant(v.getTypeCarburant());
             if (prio < meilleurePriorite) meilleurePriorite = prio;
         }
 
         List<Vehicule> meilleurCarburant = new ArrayList<>();
-        for (Vehicule v : meilleurCapacite) {
+        for (Vehicule v : meilleurTrajets) {
             if (getPrioriteCarburant(v.getTypeCarburant()) == meilleurePriorite) {
                 meilleurCarburant.add(v);
             }
