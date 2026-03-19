@@ -11,10 +11,10 @@ public class VehiculeDAO {
         String sql;
         if (vehicule.getId() == 0) {
             // Insert
-            sql = "INSERT INTO vehicules (marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente, available_from) VALUES (?, ?, ?, ?, ?, ?)";
+            sql = "INSERT INTO vehicules (marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente, available_from, trajets_effectues) VALUES (?, ?, ?, ?, ?, ?, ?)";
         } else {
             // Update
-            sql = "UPDATE vehicules SET marque = ?, capacite = ?, typeCarburant = ?, vitesseMoyenne = ?, tempsAttente = ?, available_from = ? WHERE id = ?";
+            sql = "UPDATE vehicules SET marque = ?, capacite = ?, typeCarburant = ?, vitesseMoyenne = ?, tempsAttente = ?, available_from = ?, trajets_effectues = ? WHERE id = ?";
         }
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -31,9 +31,10 @@ public class VehiculeDAO {
             } else {
                 stmt.setTimestamp(6, null);
             }
+            stmt.setInt(7, vehicule.getTrajetsEffectues());
 
             if (vehicule.getId() != 0) {
-                stmt.setInt(7, vehicule.getId());
+                stmt.setInt(8, vehicule.getId());
             }
 
             stmt.executeUpdate();
@@ -99,6 +100,7 @@ public class VehiculeDAO {
         vehicule.setTypeCarburant(rs.getString("typeCarburant"));
         vehicule.setVitesseMoyenne(rs.getBigDecimal("vitesseMoyenne"));
         vehicule.setTempsAttente(rs.getInt("tempsAttente"));
+        vehicule.setTrajetsEffectues(rs.getInt("trajets_effectues"));
         try {
             vehicule.setAvailableFrom(rs.getTimestamp("available_from"));
         } catch (SQLException e) {
@@ -135,5 +137,17 @@ public class VehiculeDAO {
             }
         }
         return null;
+    }
+
+    /**
+     * Incrémente le compteur de trajets effectués pour un véhicule.
+     */
+    public void incrementTrajetsEffectues(int id) throws SQLException {
+        String sql = "UPDATE vehicules SET trajets_effectues = trajets_effectues + 1 WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            stmt.executeUpdate();
+        }
     }
 }

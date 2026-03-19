@@ -12,6 +12,8 @@ public class Vehicule {
     private int tempsAttente;
     // Quand le véhicule redevient disponible au dépôt (aéroportt)
     private Timestamp availableFrom;
+    // Nombre de trajets effectués par ce véhicule
+    private int trajetsEffectues;
 
     // Constructeurs
     public Vehicule() {}
@@ -47,4 +49,7 @@ public class Vehicule {
 
     public Timestamp getAvailableFrom() { return availableFrom; }
     public void setAvailableFrom(Timestamp availableFrom) { this.availableFrom = availableFrom; }
+
+    public int getTrajetsEffectues() { return trajetsEffectues; }
+    public void setTrajetsEffectues(int trajetsEffectues) { this.trajetsEffectues = trajetsEffectues; }
 }
