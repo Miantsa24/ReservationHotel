@@ -52,7 +52,14 @@ public class GroupingService {
         return PRIORITE_CARBURANT.getOrDefault(t, 99);
     }
 
-    private Vehicule selectVehicleForTmp(Reservation tmp, Map<Integer,Integer> inMemoryAssigned) throws SQLException {
+    /**
+     * Sélectionne un véhicule pour une réservation temporaire, en tenant compte de la disponibilité virtuelle.
+     * @param tmp la réservation temporaire avec heure d'arrivée = heure de départ du groupe
+     * @param inMemoryAssigned capacité déjà assignée en mémoire pour le groupe courant
+     * @param virtualAvailableFrom disponibilité virtuelle des véhicules (calculée pour les groupes précédents non confirmés)
+     */
+    private Vehicule selectVehicleForTmp(Reservation tmp, Map<Integer,Integer> inMemoryAssigned,
+                                         Map<Integer, Timestamp> virtualAvailableFrom) throws SQLException {
         java.sql.Date date = tmp.getDateArrivee();
         Time time = tmp.getHeureArrivee();
 
@@ -61,14 +68,30 @@ public class GroupingService {
         java.sql.Timestamp reservationTs = new java.sql.Timestamp(date.getTime() + time.getTime());
 
         for (Vehicule v : tous) {
-            java.sql.Timestamp av = v.getAvailableFrom();
-            if (av != null) {
-                if (!av.after(reservationTs)) {
-                    candidats.add(v);
-                }
-                continue;
+            // Déterminer la disponibilité effective du véhicule
+            // On prend la plus tardive entre la disponibilité virtuelle et la disponibilité réelle
+            java.sql.Timestamp virtualAv = virtualAvailableFrom.get(v.getId());
+            java.sql.Timestamp realAv = v.getAvailableFrom();
+            java.sql.Timestamp effectiveAv = null;
+
+            if (virtualAv != null && realAv != null) {
+                // Prendre la plus tardive des deux
+                effectiveAv = virtualAv.after(realAv) ? virtualAv : realAv;
+            } else if (virtualAv != null) {
+                effectiveAv = virtualAv;
+            } else if (realAv != null) {
+                effectiveAv = realAv;
             }
 
+            if (effectiveAv != null) {
+                // Le véhicule est disponible si effectiveAv <= reservationTs
+                if (!effectiveAv.after(reservationTs)) {
+                    candidats.add(v);
+                }
+                continue; // Pas besoin de vérifier le fallback si on a une disponibilité définie
+            }
+
+            // Fallback: vérifier les réservations assignées pour cette date (quand pas de disponibilité définie)
             java.util.List<Reservation> assigned = reservationVehiculeDAO.findReservationsByVehiculeAndDate(v.getId(), date);
             if (assigned == null || assigned.isEmpty()) {
                 candidats.add(v);
@@ -131,6 +154,11 @@ public class GroupingService {
 
         java.util.Random random = new java.util.Random();
         return meilleurCarburant.get(random.nextInt(meilleurCarburant.size()));
+    }
+
+    // Version backwards-compatible sans disponibilité virtuelle (pour assignGroupsForDate)
+    private Vehicule selectVehicleForTmp(Reservation tmp, Map<Integer,Integer> inMemoryAssigned) throws SQLException {
+        return selectVehicleForTmp(tmp, inMemoryAssigned, new HashMap<>());
     }
 
     public static class Group {
@@ -305,6 +333,10 @@ public class GroupingService {
 
         List<Group> groups = groupReservationsByDate(date);
 
+        // Disponibilité virtuelle des véhicules (mise à jour après chaque groupe)
+        // Ceci permet de savoir quand un véhicule sera disponible après avoir traité un groupe non confirmé
+        Map<Integer, Timestamp> virtualAvailableFrom = new HashMap<>();
+
         for (Group g : groups) {
             models.AssignmentProposal.GroupProposal gp = new models.AssignmentProposal.GroupProposal();
             gp.departureTime = g.departureTime;
@@ -324,7 +356,7 @@ public class GroupingService {
                 tmp.setHeureArrivee(g.departureTime);
                 tmp.setNombrePersonnes(r.getNombrePersonnes());
 
-                Vehicule chosen = selectVehicleForTmp(tmp, inMemoryAssignedCapacity);
+                Vehicule chosen = selectVehicleForTmp(tmp, inMemoryAssignedCapacity, virtualAvailableFrom);
                 models.AssignmentProposal.ReservationProposal rp = new models.AssignmentProposal.ReservationProposal();
                 rp.reservationId = r.getId();
                 if (chosen != null) {
@@ -402,6 +434,16 @@ public class GroupingService {
                     // ignore estimation failures; leave default values
                 }
                 proposal.getVehicleSummaries().put(vid, vs);
+
+                // Mettre à jour la disponibilité virtuelle pour ce véhicule
+                // Ceci permet aux groupes suivants de savoir que ce véhicule ne sera disponible qu'après son retour
+                if (vs.heureArrivee != null) {
+                    Timestamp currentVirtual = virtualAvailableFrom.get(vid);
+                    // Prendre la date de retour la plus tardive si le véhicule était déjà assigné
+                    if (currentVirtual == null || vs.heureArrivee.after(currentVirtual)) {
+                        virtualAvailableFrom.put(vid, vs.heureArrivee);
+                    }
+                }
             }
 
             proposal.getGroups().add(gp);
