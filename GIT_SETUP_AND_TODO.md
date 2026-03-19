@@ -351,14 +351,14 @@
 
 ### Tâches pour Sprint 6
 
-#### TL (Team Lead) : Alexandra ETU003306
+#### TL (Team Lead) : Tojo ETU003362
 1. Assigner les tâches aux devs via le todo list dans `GIT_SETUP_AND_TODO.md`.
 2. Valider la proposition de migration SQL (colonne `trajets_effectues` ou migration via `vehicule_trajet`).
 3. Revoir les PR des devs, valider tests et critères d'acceptation.
 4. Si erreurs : Demander aux devs de créer une branche `fix/[nom]` et refaire PR.
 5. Mener les merges : `main` → `staging` → `release` et coordonner déploiement.
 
-#### Dev1 (Back-office) : Tojo ETU003362
+#### Dev1 (Back-office) : Alexandra ETU003306
 **Créer branche** : `feature/backoffice-sprint6-dev1` à partir de `main`.
 1. **DB & Migration** : Proposer et livrer un fichier de migration SQL qui :
    - ajoute la colonne `trajets_effectues` INT DEFAULT 0 à la table `vehicules` (ou crée script de peuplement depuis `vehicule_trajet`):
