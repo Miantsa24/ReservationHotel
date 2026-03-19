@@ -9,23 +9,6 @@
     <meta charset="UTF-8">
     <title>Résultat Traçabilité - Back-office Hôtel</title>
     <%@ include file="includes/assignation-styles.jsp" %>
-    <!-- Fallback styles (harmonized with central variables) in case the main include is missing -->
-    <style id="fallback-tracabilite-resultat">
-        :root{ --primary-color:#4299e1; --primary-dark:#3182ce; --text-primary:#1e293b; --text-secondary:#64748b; --card-bg:#ffffff; --border-radius:12px; }
-        *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);color:var(--text-primary);line-height:1.5}
-        .app-layout{display:flex;gap:24px;max-width:1200px;margin:0 auto;padding:20px}
-        .card,.vehicule-card{background:var(--card-bg);padding:16px;border-radius:var(--border-radius);border:1px solid rgba(0,0,0,0.04)}
-        .dashboard{display:flex;gap:12px;margin-bottom:12px}
-        .dashboard-card{padding:12px;border-radius:10px;background:rgba(0,0,0,0.02)}
-        table{width:100%;border-collapse:collapse}
-        table th, table td{padding:10px;border-bottom:1px solid rgba(0,0,0,0.04);text-align:left}
-        .parcours-container{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
-        .parcours-step{padding:6px 10px;border-radius:8px;background:rgba(0,0,0,0.02)}
-        .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;border:none;cursor:pointer}
-        .btn-primary{background:linear-gradient(135deg,var(--primary-color) 0%,var(--primary-dark) 100%);color:#fff}
-        @media (max-width:900px){.app-layout{flex-direction:column;padding:12px}}
-    </style>
 </head>
 <body>
     <div class="app-layout">

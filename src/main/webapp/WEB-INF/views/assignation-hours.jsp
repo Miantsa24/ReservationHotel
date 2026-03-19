@@ -1,6 +1,8 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
 <%@ page import="java.sql.Time" %>
+<%@ page import="models.AssignmentProposal" %>
+<%@ page import="dao.ReservationDAO" %>
     <%@ include file="includes/assignation-styles.jsp" %>
         
         <!-- @media (max-width: 900px) {
@@ -40,49 +42,36 @@
             <% } %>
 
             <div class="card">
-                <% if (request.getAttribute("groups") != null) { %>
+                <% if (request.getAttribute("proposal") != null) { %>
                     <%
-                        List groups = (List) request.getAttribute("groups");
+                        AssignmentProposal proposal = (AssignmentProposal) request.getAttribute("proposal");
+                        List<AssignmentProposal.GroupProposal> groups = proposal.getGroups();
+                        ReservationDAO rdao = new ReservationDAO();
                         if (groups != null && !groups.isEmpty()) {
                     %>
                         <div class="hours-grid">
                             <% for (int i = 0; i < groups.size(); i++) {
-                                Object g = groups.get(i);
-                                // Group has fields: reservations (List<Reservation>) and departureTime (Time)
-                                String depStr = "";
-                                int resCount = 0;
-                                try {
-                                    java.lang.reflect.Field resField = g.getClass().getField("reservations");
-                                    java.util.List resList = (java.util.List) resField.get(g);
-                                    resCount = resList != null ? resList.size() : 0;
-                                    java.lang.reflect.Field depField = g.getClass().getField("departureTime");
-                                    Object dep = depField.get(g);
-                                    depStr = dep != null ? dep.toString() : "";
-                                } catch (Exception ex) { depStr = ""; resCount = 0; }
+                                AssignmentProposal.GroupProposal g = groups.get(i);
+                                int resCount = g.reservations != null ? g.reservations.size() : 0;
+                                String depStr = g.departureTime != null ? g.departureTime.toString() : "";
+
+                                // Get first reservation's arrival time
+                                String firstStr = "—";
+                                if (g.reservations != null && !g.reservations.isEmpty()) {
+                                    try {
+                                        int firstResId = g.reservations.get(0).reservationId;
+                                        models.Reservation firstRes = rdao.findById(firstResId);
+                                        if (firstRes != null && firstRes.getHeureArrivee() != null) {
+                                            firstStr = firstRes.getHeureArrivee().toString();
+                                        }
+                                    } catch (Exception _e) { /* ignore */ }
+                                }
                             %>
                                 <a href="<%= request.getContextPath() %>/assignations/group?date=<%= request.getAttribute("date") %>&index=<%= i %>" class="hour-card" style="cursor:pointer; display:block; text-decoration:none;">
                                     <div class="hour-icon">🧩</div>
                                     <div>
                                         <div class="hour-value">Groupe #<%= i+1 %></div>
                                         <div style="font-size:13px;color:var(--text-secondary);margin-top:6px;">
-                                            <%
-                                                // derive first arrival time and last (departureTime)
-                                                String firstStr = "—";
-                                                try {
-                                                    java.lang.reflect.Field resField2 = g.getClass().getField("reservations");
-                                                    java.util.List resList2 = (java.util.List) resField2.get(g);
-                                                    if (resList2 != null && !resList2.isEmpty()) {
-                                                        Object first = resList2.get(0);
-                                                        if (first != null) {
-                                                            try {
-                                                                java.lang.reflect.Method m = first.getClass().getMethod("getHeureArrivee");
-                                                                Object t = m.invoke(first);
-                                                                if (t != null) firstStr = t.toString();
-                                                            } catch (Exception _e) { /* ignore */ }
-                                                        }
-                                                    }
-                                                } catch (Exception _e) { /* ignore */ }
-                                            %>
                                             <span><%= resCount %> réservation(s)</span>
                                             &nbsp;•&nbsp;
                                             <span>

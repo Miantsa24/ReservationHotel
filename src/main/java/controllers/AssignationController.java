@@ -53,9 +53,10 @@ public class AssignationController {
         ModelView mv = new ModelView("/WEB-INF/views/assignation-hours.jsp");
         try {
             Date date = Date.valueOf(dateStr);
-            java.util.List<service.GroupingService.Group> groups = groupingService.groupReservationsByDate(date);
+            // Use computeAssignmentsForDate to get the correct departure time (based on last assigned reservation)
+            models.AssignmentProposal proposal = groupingService.computeAssignmentsForDate(date);
             mv.addItem("date", dateStr);
-            mv.addItem("groups", groups);
+            mv.addItem("proposal", proposal);
         } catch (Exception e) {
             mv.addItem("error", "Erreur: " + e.getMessage());
         }
@@ -161,6 +162,9 @@ public class AssignationController {
                 models.AssignmentProposal.VehicleSummary vs = full.getVehicleSummaries().get(vid);
                 if (vs != null) sub.getVehicleSummaries().put(vid, vs);
             }
+
+            // copy the group so that non-assigned reservations can be updated
+            sub.getGroups().add(gp);
 
             // Optimistic checks: reservations still EN_ATTENTE and vehicles available
             for (models.AssignmentProposal.VehicleSummary vs : sub.getVehicleSummaries().values()) {
