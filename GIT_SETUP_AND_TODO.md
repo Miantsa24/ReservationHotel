@@ -334,6 +334,72 @@
 
  - Modif BDD : ajouter dans la table `vehicules` les colonnes : `heure_depart` DATETIME NULL, `heure_arrivee` DATETIME NULL, `liste_reservation` TEXT NULL (liste d'IDs d'hôtels ou JSON), `kilometrage_parcouru` DECIMAL(8,2) DEFAULT 0.
 
+==========================================================================================================================
+
+## Rôles:
+ - **Sprint 6:**
+    Team Lead : Tojo ETU003362
+    Dev 1 (BackOffice) : Alexandra ETU003306
+    Dev 2 (BackOffice) : Malala ETU003211
+
+## Todo List pour Sprint 6
+
+### Rôles et Responsabilités
+ - **TL (Team Lead)** : Code reviews, assignation des tâches, validation des migrations, merges et déploiements.
+ - **Dev1 (Back-office)** : DB, modèle, DAO, incrémentation des trajets, tests unitaires.
+ - **Dev2 (Back-office)** : Service de sélection (priorité trajets), controllers/JSP, tests d'intégration.
+
+### Tâches pour Sprint 6
+
+#### TL (Team Lead) : Alexandra ETU003306
+1. Assigner les tâches aux devs via le todo list dans `GIT_SETUP_AND_TODO.md`.
+2. Valider la proposition de migration SQL (colonne `trajets_effectues` ou migration via `vehicule_trajet`).
+3. Revoir les PR des devs, valider tests et critères d'acceptation.
+4. Si erreurs : Demander aux devs de créer une branche `fix/[nom]` et refaire PR.
+5. Mener les merges : `main` → `staging` → `release` et coordonner déploiement.
+
+#### Dev1 (Back-office) : Tojo ETU003362
+**Créer branche** : `feature/backoffice-sprint6-dev1` à partir de `main`.
+1. **DB & Migration** : Proposer et livrer un fichier de migration SQL qui :
+   - ajoute la colonne `trajets_effectues` INT DEFAULT 0 à la table `vehicules` (ou crée script de peuplement depuis `vehicule_trajet`):
+   ALTER TABLE `vehicules` 
+   ADD COLUMN `trajets_effectues` INT DEFAULT 0;
+2. **Models** : Ajouter `trajetsEffectues` dans le modèle `Vehicule` et générer les accesseurs.
+3. **DAO** : Mettre à jour `VehiculeDAO` pour lire/écrire `trajetsEffectues`.
+4. **Incrémentation** : Incrémenter `trajetsEffectues` dès qu'un `Vehicule` termine son trajet (retour à l'aéroport) — garantir transactionnalité.
+5. **Tests unitaires** : Ajouter tests pour persistance et incrémentation (`VehiculeDAO` et point de mise à jour après trajet).
+6. **Commit & PR** : Commits atomiques et PR vers `main` pour review.
+
+#### Dev2 (Back-office) : Malala ETU003211
+**Créer branche** : `feature/backoffice-sprint6-dev2` à partir de `main`.
+1. **Selection Service** : Mettre à jour `VehiculeSelectionService` pour la règle suivante lors d'une nouvelle réservation :
+   - Filtrer véhicules éligibles par capacité (règle existante).
+   - Parmi les éligibles, choisir ceux ayant le plus petit `trajetsEffectues`.
+   - En cas d'égalité sur `trajetsEffectues`, appliquer la priorité carburant (Diesel > Essence > Hybride > Électrique).
+   - Si toujours égal, choisir aléatoirement.
+   - Ne pas modifier les règles métiers existantes (capacités et priorités carburant restent inchangées), insérer uniquement l'étape "tri par trajets" entre capacité et carburant.
+2. **Controllers / UI** : Mettre à jour les affichages de traçabilité pour montrer `trajetsEffectues` (JSP et endpoints si nécessaire).
+3. **Tests unitaires & d'intégration** : Ajouter tests pour la logique de sélection (priorité capacité → trajets → carburant → random) et scénarios d'intégration.
+4. **Commit & PR** : Commits atomiques et PR vers `main` pour review.
+
+### Critères d'acceptation
+ - Les règles métiers existantes restent inchangées (capacité & priorités carburant).
+ - Lors d'une nouvelle assignation, l'ordre de décision est : capacité → `trajetsEffectues` (moins) → carburant → random.
+ - `trajetsEffectues` est correctement incrémenté au retour d'un trajet et persiste en base.
+ - Tests unitaires et d'intégration couvrent les cas d'égalité et les priorités.
+
+### Données de test recommandées
+ - Pré-remplir `trajets_effectues` à partir des enregistrements historiques (`vehicule_trajet`) si nécessaire.
+ - Cas recommandés :
+   * Véhicule avec capacité insuffisante vs suffisant (ex: 8 vs 5 places).
+   * Véhicules mêmes capacités avec trajets différents.
+   * Égalité complète → random.
+   * Incrémentation après fin de trajet.
+
+==============================================================================
+
+======================================================================================
+
 
 
 
