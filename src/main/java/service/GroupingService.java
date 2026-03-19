@@ -462,7 +462,7 @@ public class GroupingService {
         // interference with DAOs that open/close the shared connection.
         String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
         String user = System.getProperty("db.user", "root");
-        String pass = System.getProperty("db.password", "");
+        String pass = System.getProperty("db.password", "root");
         try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
             boolean previousAuto = conn.getAutoCommit();
             conn.setAutoCommit(false);
