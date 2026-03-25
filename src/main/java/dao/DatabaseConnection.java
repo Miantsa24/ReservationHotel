@@ -13,7 +13,7 @@ public class DatabaseConnection {
     //      -Ddb.user=root -Ddb.password=secret
     private static final String URL = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
     private static final String USER = System.getProperty("db.user", "root");
-    private static final String PASSWORD = System.getProperty("db.password", "");
+    private static final String PASSWORD = System.getProperty("db.password", "root");
 
     private static Connection connection = null;
 

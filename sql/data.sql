@@ -40,3 +40,24 @@ INSERT INTO distance (`from`, `to`, km) VALUES
    ('Ibis', 'Trano', 18.00),
    ('Lokanga', 'Trano', 12.00);
 
+   INSERT INTO vehicules (id, marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente, available_from, trajets_effectues) VALUES
+(1, 'Vehicule 1', 8, 'diesel', 60.00, 30, NULL, 0),
+(2, 'Vehicule 2', 5, 'diesel', 60.00, 30, NULL, 0);
+
+INSERT INTO reservations (id, hotel_id, date_arrivee, heure_arrivee, nombre_personnes, ref_client, status) VALUES
+
+-- SCENARIO 1
+-- (1, 1, '2026-03-19', '08:00:00', 6, 'r1', 'EN_ATTENTE'), -- Colbert
+-- (2, 3, '2026-03-19', '08:15:00', 4, 'r2', 'EN_ATTENTE'), -- Ibis
+-- (3, 1, '2026-03-19', '08:20:00', 2, 'r3', 'EN_ATTENTE'), -- Colbert
+
+-- -- SCENARIO 2 (non assignable)
+-- (4, 4, '2026-03-19', '08:25:00', 2, 'r4', 'EN_ATTENTE'), -- Lokanga
+
+-- -- SCENARIO 3 (nouveau groupe)
+(5, 3, '2026-03-19', '09:00:00', 5, 'r5', 'EN_ATTENTE'), -- Ibis
+(6, 1, '2026-03-19', '09:15:00', 3, 'r6', 'EN_ATTENTE'), -- Colbert
+
+-- SCENARIO 4 (nouveau groupe car dépassement)
+(7, 4, '2026-03-19', '09:31:00', 2, 'r7', 'EN_ATTENTE'); -- Lokanga
+

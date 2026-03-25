@@ -65,10 +65,27 @@
                                 <%
                                     ReservationDAO rdao = new ReservationDAO();
                                     VehiculeDAO vdao = new VehiculeDAO();
-                                    for (AssignmentProposal.GroupProposal g : groups) {
-                                        for (AssignmentProposal.ReservationProposal rp : g.reservations) {
-                                            models.Reservation r = null;
-                                            try { r = rdao.findById(rp.reservationId); } catch (SQLException _e) { r = null; }
+
+                                    // Determine which reservations to display: if a specific groupIndex is provided,
+                                    // show only that group's reservations; otherwise show all groups' reservations.
+                                    Integer requestedGroupIndex = null;
+                                    try { requestedGroupIndex = (Integer) request.getAttribute("groupIndex"); } catch (Exception _gi) { requestedGroupIndex = null; }
+
+                                    java.util.List<AssignmentProposal.ReservationProposal> displayReservations = new java.util.ArrayList<>();
+                                    if (requestedGroupIndex != null) {
+                                        if (requestedGroupIndex >= 0 && requestedGroupIndex < groups.size()) {
+                                            AssignmentProposal.GroupProposal selected = groups.get(requestedGroupIndex);
+                                            if (selected != null && selected.reservations != null) displayReservations.addAll(selected.reservations);
+                                        }
+                                    } else {
+                                        for (AssignmentProposal.GroupProposal g : groups) {
+                                            if (g != null && g.reservations != null) displayReservations.addAll(g.reservations);
+                                        }
+                                    }
+
+                                    for (AssignmentProposal.ReservationProposal rp : displayReservations) {
+                                        models.Reservation r = null;
+                                        try { r = rdao.findById(rp.reservationId); } catch (SQLException _e) { r = null; }
                                 %>
                                 <tr>
                                     <td><span class="badge-id">#<%= rp.reservationId %></span></td>
@@ -90,9 +107,7 @@
                                         <% } %>
                                     </td>
                                 </tr>
-                                <%     }
-                                    }
-                                %>
+                                <% } %>
                             </tbody>
                         </table>
                     </div>
@@ -101,7 +116,28 @@
                     <div style="margin-top:20px;">
                         <h3>Résumé par véhicule</h3>
                         <div class="vehicle-grid">
-                            <% for (AssignmentProposal.VehicleSummary vs : proposal.getVehicleSummaries().values()) {
+                            <%
+                                // Filter vehicle summaries to the selected group's reservations when applicable
+                                java.util.Set<Integer> groupResIds = new java.util.HashSet<>();
+                                try {
+                                    Integer requestedGroupIndex2 = (Integer) request.getAttribute("groupIndex");
+                                    if (requestedGroupIndex2 != null && requestedGroupIndex2 >= 0 && requestedGroupIndex2 < groups.size()) {
+                                        AssignmentProposal.GroupProposal sel = groups.get(requestedGroupIndex2);
+                                        for (AssignmentProposal.ReservationProposal rp : sel.reservations) groupResIds.add(rp.reservationId);
+                                    } else {
+                                        // if no groupIndex provided, include all reservations
+                                        for (AssignmentProposal.GroupProposal g : groups) for (AssignmentProposal.ReservationProposal rp : g.reservations) groupResIds.add(rp.reservationId);
+                                    }
+                                } catch (Exception _gex) {
+                                    // fallback: include all
+                                    for (AssignmentProposal.GroupProposal g : groups) for (AssignmentProposal.ReservationProposal rp : g.reservations) groupResIds.add(rp.reservationId);
+                                }
+
+                                for (AssignmentProposal.VehicleSummary vs : proposal.getVehicleSummaries().values()) {
+                                    // show only vehicle summaries that concern this group's reservations
+                                    boolean relevant = false;
+                                    for (Integer rid : vs.reservationIds) { if (groupResIds.contains(rid)) { relevant = true; break; } }
+                                    if (!relevant) continue;
                                     models.Vehicule _v = null;
                                     try { _v = new VehiculeDAO().findById(vs.vehiculeId); } catch (SQLException _e) { _v = null; }
                             %>
@@ -114,6 +150,7 @@
                                 <div class="vehicle-reservations">
                                     <%-- show small chips for each reservation with client ref and persons --%>
                                     <% for (Integer rid : vs.reservationIds) {
+                                            if (!groupResIds.contains(rid)) continue;
                                             models.Reservation rr = null;
                                             try { rr = new ReservationDAO().findById(rid); } catch (SQLException _e) { rr = null; }
                                     %>

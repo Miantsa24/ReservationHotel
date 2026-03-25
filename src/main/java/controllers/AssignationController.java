@@ -55,6 +55,10 @@ public class AssignationController {
             Date date = Date.valueOf(dateStr);
             // Use computeAssignmentsForDate to get the correct departure time (based on last assigned reservation)
             models.AssignmentProposal proposal = groupingService.computeAssignmentsForDate(date);
+            // DEBUG: log brief proposal overview for troubleshooting
+            try {
+                System.out.println("DEBUG-CONTROLLER: computeAssignmentsForDate date=" + date + " groups=" + (proposal != null ? proposal.getGroups().size() : "null"));
+            } catch (Exception __dbg) { }
             mv.addItem("date", dateStr);
             mv.addItem("proposal", proposal);
         } catch (Exception e) {
@@ -104,10 +108,15 @@ public class AssignationController {
             String heureRange = "—";
             try {
                 if (gp != null && gp.reservations != null && !gp.reservations.isEmpty()) {
-                    int rid = gp.reservations.get(0).reservationId;
-                    Reservation r = reservationDAO.findById(rid);
-                    if (r != null && r.getHeureArrivee() != null) {
-                        String first = r.getHeureArrivee().toString();
+                    java.sql.Time firstTime = null;
+                    for (models.AssignmentProposal.ReservationProposal rrp : gp.reservations) {
+                        Reservation rtemp = reservationDAO.findById(rrp.reservationId);
+                        if (rtemp != null && rtemp.getHeureArrivee() != null) {
+                            if (firstTime == null || rtemp.getHeureArrivee().before(firstTime)) firstTime = rtemp.getHeureArrivee();
+                        }
+                    }
+                    if (firstTime != null) {
+                        String first = firstTime.toString();
                         if (first.length() >= 5) first = first.substring(0,5);
                         heureRange = first;
                     }
