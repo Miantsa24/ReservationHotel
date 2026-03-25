@@ -65,7 +65,9 @@ public class GroupingService {
 
         java.util.List<Vehicule> tous = vehiculeDAO.findAll();
         java.util.List<Vehicule> candidats = new ArrayList<>();
-        java.sql.Timestamp reservationTs = new java.sql.Timestamp(date.getTime() + time.getTime());
+        // Créer le timestamp correctement en combinant date et heure via LocalDateTime
+        java.time.LocalDateTime reservationLdt = java.time.LocalDateTime.of(date.toLocalDate(), time.toLocalTime());
+        java.sql.Timestamp reservationTs = java.sql.Timestamp.valueOf(reservationLdt);
 
         for (Vehicule v : tous) {
             // Déterminer la disponibilité effective du véhicule
@@ -462,7 +464,7 @@ public class GroupingService {
         // interference with DAOs that open/close the shared connection.
         String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
         String user = System.getProperty("db.user", "root");
-        String pass = System.getProperty("db.password", "root");
+        String pass = System.getProperty("db.password", "");
         try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
             boolean previousAuto = conn.getAutoCommit();
             conn.setAutoCommit(false);
