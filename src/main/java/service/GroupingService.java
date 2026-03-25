@@ -338,6 +338,7 @@ public class GroupingService {
         // Disponibilité virtuelle des véhicules (mise à jour après chaque groupe)
         // Ceci permet de savoir quand un véhicule sera disponible après avoir traité un groupe non confirmé
         Map<Integer, Timestamp> virtualAvailableFrom = new HashMap<>();
+        int __debug_group_index = 0;
 
         for (Group g : groups) {
             models.AssignmentProposal.GroupProposal gp = new models.AssignmentProposal.GroupProposal();
@@ -371,6 +372,22 @@ public class GroupingService {
                 }
                 gp.reservations.add(rp);
             }
+
+            // DEBUG: afficher contenu du groupe et des assignments calculés
+            try {
+                StringBuilder ids = new StringBuilder();
+                for (models.AssignmentProposal.ReservationProposal rp : gp.reservations) {
+                    if (ids.length() > 0) ids.append(','); ids.append(rp.reservationId);
+                }
+                System.out.println("DEBUG-GROUPING: processing groupIndex=" + __debug_group_index + " departure=" + gp.departureTime + " reservations=[" + ids.toString() + "]");
+
+                StringBuilder asm = new StringBuilder();
+                for (Map.Entry<Integer, List<Integer>> e : assignments.entrySet()) {
+                    if (asm.length() > 0) asm.append(' ');
+                    asm.append(e.getKey()).append("->").append(e.getValue());
+                }
+                System.out.println("DEBUG-GROUPING: assignments map for groupIndex=" + __debug_group_index + " : " + asm.toString());
+            } catch (Exception __dbgEx) { System.out.println("DEBUG-GROUPING: failed to print debug info: " + __dbgEx.getMessage()); }
 
             // Compute actual departure time: last assigned reservation's arrival time
             // If the last reservation in the group is non-assigned, use the last assigned one
@@ -448,8 +465,22 @@ public class GroupingService {
                 }
             }
 
+            // DEBUG: afficher résumé véhicules courants (après mise à jour pour ce groupe)
+            try {
+                StringBuilder vsSummary = new StringBuilder();
+                for (Map.Entry<Integer, models.AssignmentProposal.VehicleSummary> e : proposal.getVehicleSummaries().entrySet()) {
+                    if (vsSummary.length() > 0) vsSummary.append(' ');
+                    vsSummary.append(e.getKey()).append("->").append(e.getValue().reservationIds);
+                }
+                System.out.println("DEBUG-GROUPING: vehicleSummaries after groupIndex=" + __debug_group_index + " : " + vsSummary.toString());
+            } catch (Exception __dbgEx) { System.out.println("DEBUG-GROUPING: failed to print vehicle summaries: " + __dbgEx.getMessage()); }
+
             proposal.getGroups().add(gp);
+            __debug_group_index++;
         }
+
+        // DEBUG: final proposal overview
+        try { System.out.println("DEBUG-GROUPING: final proposal groups=" + proposal.getGroups().size() + " vehicleSummaries=" + proposal.getVehicleSummaries().keySet()); } catch (Exception __dbgEx) {}
 
         return proposal;
     }
@@ -464,7 +495,7 @@ public class GroupingService {
         // interference with DAOs that open/close the shared connection.
         String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
         String user = System.getProperty("db.user", "root");
-        String pass = System.getProperty("db.password", "");
+        String pass = System.getProperty("db.password", "root");
         try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
             boolean previousAuto = conn.getAutoCommit();
             conn.setAutoCommit(false);
