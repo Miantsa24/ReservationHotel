@@ -18,6 +18,7 @@ public class VehiculeTracabilite {
     private double distanceTotale;
     private String parcours;
     private java.util.List<java.sql.Time> etapeHeures;
+    private List<TrajetTracabilite> trajets;
 
     public VehiculeTracabilite() {
         this.reservations = new ArrayList<>();
@@ -49,4 +50,7 @@ public class VehiculeTracabilite {
 
     public java.util.List<java.sql.Time> getEtapeHeures() { return etapeHeures; }
     public void setEtapeHeures(java.util.List<java.sql.Time> etapeHeures) { this.etapeHeures = etapeHeures; }
+
+    public List<TrajetTracabilite> getTrajets() { return trajets; }
+public void setTrajets(List<TrajetTracabilite> trajets) { this.trajets = trajets; }
 }

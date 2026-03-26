@@ -13,9 +13,11 @@ import dao.VehiculeTrajetDAO;
 import dao.HotelDAO;
 import models.Reservation;
 import models.ReservationVehicule;
+import models.TrajetTracabilite;
 import models.Vehicule;
 import models.Hotel;
 import models.VehiculeTracabilite;
+import models.VehiculeTrajet;
 import service.TracabiliteService;
 import service.HotelRoutingService;
 
@@ -59,117 +61,76 @@ public class TracabiliteController {
             Date dateSql = Date.valueOf(date); // format yyyy-MM-dd
             List<Reservation> reservations = reservationDAO.findByDateArrivee(dateSql);
 
-            // Grouper les réservations par véhicule
-            Map<Integer, List<Reservation>> parVehicule = new LinkedHashMap<>();
+           List<VehiculeTrajet> trajetsDB = vehiculeTrajetDAO.findByDate(dateSql);
 
-            for (Reservation r : reservations) {
-                ReservationVehicule rv = reservationVehiculeDAO.findByReservationId(r.getId());
-                if (rv != null) {
-                    int idVehicule = rv.getIdVehicule();
-                    if (!parVehicule.containsKey(idVehicule)) {
-                        parVehicule.put(idVehicule, new ArrayList<>());
-                    }
-                    parVehicule.get(idVehicule).add(r);
-                }
+            // Grouper les trajets par véhicule
+            Map<Integer, List<VehiculeTrajet>> trajetsParVehicule = new LinkedHashMap<>();
+
+            for (VehiculeTrajet t : trajetsDB) {
+                trajetsParVehicule
+                    .computeIfAbsent(t.getVehiculeId(), k -> new ArrayList<>())
+                    .add(t);
             }
 
             // Construire la liste de VehiculeTracabilite
             List<VehiculeTracabilite> tracabilites = new ArrayList<>();
 
-            for (Map.Entry<Integer, List<Reservation>> entry : parVehicule.entrySet()) {
-                int idVehicule = entry.getKey();
-                List<Reservation> resasVehicule = entry.getValue();
+            for (Map.Entry<Integer, List<VehiculeTrajet>> entry : trajetsParVehicule.entrySet()) {
 
+                int idVehicule = entry.getKey();
                 Vehicule vehicule = vehiculeDAO.findById(idVehicule);
                 if (vehicule == null) continue;
 
                 VehiculeTracabilite vt = new VehiculeTracabilite();
                 vt.setVehicule(vehicule);
-                vt.setReservations(resasVehicule);
 
-                // Collecter les hôtels parcourus (sans doublons)
-                List<String> hotels = new ArrayList<>();
-                for (Reservation r : resasVehicule) {
-                    String nomHotel = r.getHotelNom();
-                    if (nomHotel == null) {
-                        Hotel h = hotelDAO.findById(r.getHotelId());
-                        if (h != null) nomHotel = h.getNom();
-                    }
-                    if (nomHotel != null && !hotels.contains(nomHotel)) {
-                        hotels.add(nomHotel);
-                    }
-                }
+                List<TrajetTracabilite> trajetsList = new ArrayList<>();
 
-                // Ordonner les hôtels selon l'algorithme nearest-neighbour
-                List<String> hotelsOrdonnes = hotelRoutingService.ordonnerHotels(hotels);
-                vt.setHotels(hotelsOrdonnes);
+                for (VehiculeTrajet trajet : entry.getValue()) {
 
-                // Construire la chaîne de parcours : Aéroport -> H1 -> H2 -> Aéroport
-                StringBuilder sb = new StringBuilder("Aéroport");
-                for (String hname : hotelsOrdonnes) {
-                    sb.append(" -> ").append(hname);
-                }
-                sb.append(" -> Aéroport");
-                vt.setParcours(sb.toString());
+                    TrajetTracabilite tt = new TrajetTracabilite();
+                    tt.setTrajet(trajet);
 
-                // Prefer persisted trajet info (heure_depart set at persist time) when present
-                try {
-                    java.util.List<models.VehiculeTrajet> trajets = vehiculeTrajetDAO.findByVehiculeIdAndDate(idVehicule, dateSql);
-                    if (trajets != null && !trajets.isEmpty()) {
-                        // pick the first trajet with a non-null heure_depart, else first
-                        models.VehiculeTrajet chosen = null;
-                        for (models.VehiculeTrajet t : trajets) {
-                            if (t.getHeureDepart() != null) { chosen = t; break; }
-                        }
-                        if (chosen == null) chosen = trajets.get(0);
-                        if (chosen.getHeureDepart() != null) vt.setHeureDepart(new java.sql.Time(chosen.getHeureDepart().getTime()));
-                        if (chosen.getHeureArrivee() != null) vt.setHeureRetour(new java.sql.Time(chosen.getHeureArrivee().getTime()));
-                        vt.setDistanceTotale(chosen.getKilometrageParcouru());
-                    } else {
-                        // fallback to computed values
-                        vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));
-                        java.sql.Time heureRetour = tracabiliteService.calculerHeureRetour(vehicule, resasVehicule);
-                        if (heureRetour == null) {
-                            // fallback: prefer vehicule.available_from if present
+                    // 🔹 Parser listeReservation
+                    List<Reservation> resas = new ArrayList<>();
+                    String json = trajet.getListeReservation(); // ex: [1,2,3]
+
+                    if (json != null && json.length() > 2) {
+                        String cleaned = json.replace("[", "").replace("]", "");
+                        String[] ids = cleaned.split(",");
+
+                        for (String idStr : ids) {
                             try {
-                                java.sql.Timestamp av = vehiculeDAO.findAvailableFrom(vehicule.getId());
-                                if (av != null) {
-                                    heureRetour = new java.sql.Time(av.getTime());
-                                } else {
-                                    // fallback: latest reservation heure_arrivee + 2 hours
-                                    java.time.LocalTime latest = resasVehicule.stream()
-                                            .map(Reservation::getHeureArrivee)
-                                            .filter(Objects::nonNull)
-                                            .map(java.sql.Time::toLocalTime)
-                                            .max(Comparator.naturalOrder())
-                                            .orElse(java.time.LocalTime.MIDNIGHT);
-                                    java.time.LocalDate dateLocal = dateSql.toLocalDate();
-                                    java.time.LocalDateTime ldt = java.time.LocalDateTime.of(dateLocal, latest).plusHours(2);
-                                    heureRetour = new java.sql.Time(java.sql.Timestamp.valueOf(ldt).getTime());
-                                }
-                            } catch (Exception ex) {
-                                // ignore and leave heureRetour null
-                            }
+                                int rid = Integer.parseInt(idStr.trim());
+                                Reservation r = reservationDAO.findById(rid);
+                                if (r != null) resas.add(r);
+                            } catch (Exception ignore) {}
                         }
-                        vt.setHeureRetour(heureRetour);
-                        // set distance if not set by trajet
-                        vt.setDistanceTotale(tracabiliteService.calculerDistanceTotale(resasVehicule));
                     }
-                } catch (SQLException ex) {
-                    // on DB error, fallback to computed approach
-                    vt.setHeureDepart(tracabiliteService.getHeureDepart(resasVehicule));
-                    try { vt.setHeureRetour(tracabiliteService.calculerHeureRetour(vehicule, resasVehicule)); } catch (SQLException s) { /* ignore */ }
-                    try { vt.setDistanceTotale(tracabiliteService.calculerDistanceTotale(resasVehicule)); } catch (SQLException s) { /* ignore */ }
+
+                    tt.setReservations(resas);
+
+                    // 🔹 hôtels
+                    List<String> hotels = new ArrayList<>();
+                    for (Reservation r : resas) {
+                        String h = r.getHotelNom();
+                        if (h != null && !hotels.contains(h)) hotels.add(h);
+                    }
+
+                    List<String> ordered = hotelRoutingService.ordonnerHotels(hotels);
+                    tt.setHotels(ordered);
+
+                    // 🔹 étapes
+                    try {
+                        java.sql.Time depart = new java.sql.Time(trajet.getHeureDepart().getTime());
+                        List<java.sql.Time> etapes = tracabiliteService.calculerHeuresParcours(ordered, depart, vehicule);
+                        tt.setEtapeHeures(etapes);
+                    } catch (Exception e) {}
+
+                    trajetsList.add(tt);
                 }
 
-                // Compute per-step arrival times from group's departure using vehicle speed
-                try {
-                    java.util.List<java.sql.Time> etapes = tracabiliteService.calculerHeuresParcours(hotelsOrdonnes, vt.getHeureDepart(), vehicule);
-                    vt.setEtapeHeures(etapes);
-                    // If heureDepart is null but we can compute from vehicle.availableFrom, try that
-                } catch (Exception ex) {
-                    // ignore
-                }
+                vt.setTrajets(trajetsList);
 
                 tracabilites.add(vt);
             }

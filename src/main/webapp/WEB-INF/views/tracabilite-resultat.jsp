@@ -1,8 +1,10 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
+<%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="models.VehiculeTracabilite" %>
 <%@ page import="models.Reservation" %>
 <%@ page import="models.Vehicule" %>
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -13,11 +15,15 @@
 <body>
     <div class="app-layout">
         <%@ include file="includes/sidebar.jsp" %>
+
         <div class="main-content">
             <div class="container">
+
                 <div class="page-header">
                     <h1 class="page-title">🚐 Traçabilité des Véhicules</h1>
-                    <div class="date-header">📅 Traçabilité du <strong><%= request.getAttribute("date") %></strong></div>
+                    <div class="date-header">
+                        📅 Traçabilité du <strong><%= request.getAttribute("date") %></strong>
+                    </div>
                 </div>
 
                 <% if (request.getAttribute("error") != null) { %>
@@ -33,13 +39,13 @@
                     Integer countAssignees = (Integer) request.getAttribute("countAssignees");
                     Integer countNonAssignees = (Integer) request.getAttribute("countNonAssignees");
                     Integer countEnAttente = (Integer) request.getAttribute("countEnAttente");
-                    Integer totalReservations = (Integer) request.getAttribute("totalReservations");
-                    
+
                     if (countAssignees == null) countAssignees = 0;
                     if (countNonAssignees == null) countNonAssignees = 0;
                     if (countEnAttente == null) countEnAttente = 0;
-                    if (totalReservations == null) totalReservations = 0;
                     if (totalVehicules == null) totalVehicules = 0;
+
+                    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
                 %>
 
                 <!-- Dashboard -->
@@ -67,130 +73,177 @@
                 </div>
 
                 <% if (tracabilites != null && !tracabilites.isEmpty()) { %>
-                    <% int cardIndex = 0; for (VehiculeTracabilite vt : tracabilites) { cardIndex++; %>
+
+                    <% int cardIndex = 0; 
+                       for (VehiculeTracabilite vt : tracabilites) { 
+                           cardIndex++; %>
+
                         <div class="vehicule-card" style="animation-delay: <%= (cardIndex * 0.1) %>s;">
+
                             <div class="vehicule-header">
-                                <div class="vehicule-name">🚐 <%= vt.getVehicule().getMarque() %></div>
+                                <div class="vehicule-name">
+                                    🚐 <%= vt.getVehicule().getMarque() %>
+                                </div>
+
                                 <div class="vehicule-tags">
-                                    <span class="tag tag-capacite">👤 <%= vt.getVehicule().getCapacite() %> places</span>
-                                    <span class="tag tag-carburant">⛽ <%= vt.getVehicule().getTypeCarburant() %></span>
-                                    <span class="tag tag-vitesse">⚡ <%= vt.getVehicule().getVitesseMoyenne() %> km/h</span>
-                                    <span class="tag tag-trajets">🚏 <%= vt.getVehicule().getTrajetsEffectues() %> trajets</span>
+                                    <span class="tag tag-capacite">
+                                        👤 <%= vt.getVehicule().getCapacite() %> places
+                                    </span>
+                                    <span class="tag tag-carburant">
+                                        ⛽ <%= vt.getVehicule().getTypeCarburant() %>
+                                    </span>
+                                    <span class="tag tag-vitesse">
+                                        ⚡ <%= vt.getVehicule().getVitesseMoyenne() %> km/h
+                                    </span>
+                                    <span class="tag tag-trajets">
+                                        🚏 <%= vt.getVehicule().getTrajetsEffectues() %> trajets
+                                    </span>
                                 </div>
                             </div>
 
-                            <div class="info-grid">
-                                <div class="info-box">
-                                    <div class="info-box-label">🛫 Départ Aéroport</div>
-                                    <div class="info-box-value">
-                                        <%= vt.getHeureDepart() != null ? vt.getHeureDepart() : "—" %>
-                                    </div>
-                                </div>
-                                <div class="info-box">
-                                    <div class="info-box-label">🛬 Retour Aéroport</div>
-                                    <div class="info-box-value">
-                                        <%= vt.getHeureRetour() != null ? vt.getHeureRetour() : "—" %>
-                                    </div>
-                                </div>
-                                <div class="info-box">
-                                    <div class="info-box-label">🧭 Kilométrage parcouru</div>
-                                    <div class="info-box-value">
-                                        <%= String.format("%.2f km", vt.getDistanceTotale()) %>
-                                    </div>
-                                </div>
-                            </div>
+                            <% if (vt.getTrajets() != null && !vt.getTrajets().isEmpty()) { 
+                                   int tIndex = 0;
 
-                            <div class="section-title">🏨 Parcours</div>
-                            <div class="parcours-container">
-                                <div class="parcours-step">Aéroport</div>
-                                <% if (vt.getHotels() != null && !vt.getHotels().isEmpty()) { %>
-                                    <% for (String hotel : vt.getHotels()) { %>
+                                   for (models.TrajetTracabilite tt : vt.getTrajets()) { 
+                                       tIndex++; %>
+
+                                <div style="margin-top:20px; padding:15px; border:1px solid #ddd; border-radius:10px;">
+
+                                    <div class="section-title">
+                                        🚏 Trajet <%= tIndex %>
+                                        (<%= tt.getTrajet().getHeureDepart() != null ? sdf.format(tt.getTrajet().getHeureDepart()) : "—" %>)
+                                    </div>
+
+                                    <div class="info-grid">
+
+                                        <div class="info-box">
+                                            <div class="info-box-label">🛫 Départ</div>
+                                            <div class="info-box-value">
+                                                <%= tt.getTrajet().getHeureDepart() != null ? sdf.format(tt.getTrajet().getHeureDepart()) : "—" %>
+                                            </div>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <div class="info-box-label">🛬 Retour</div>
+                                            <div class="info-box-value">
+                                                <%= tt.getTrajet().getHeureArrivee() != null ? sdf.format(tt.getTrajet().getHeureArrivee()) : "—" %>
+                                            </div>
+                                        </div>
+
+                                        <div class="info-box">
+                                            <div class="info-box-label">🧭 Distance</div>
+                                            <div class="info-box-value">
+                                                <%= String.format("%.2f km", tt.getTrajet().getKilometrageParcouru()) %>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
+                                    <!-- Parcours -->
+                                    <div class="section-title">🏨 Parcours</div>
+                                    <div class="parcours-container">
+                                        <div class="parcours-step">Aéroport</div>
+
+                                        <% if (tt.getHotels() != null) {
+                                               for (String h : tt.getHotels()) { %>
+                                            <div class="parcours-arrow">→</div>
+                                            <div class="parcours-step"><%= h %></div>
+                                        <% }} %>
+
                                         <div class="parcours-arrow">→</div>
-                                        <div class="parcours-step"><%= hotel %></div>
-                                    <% } %>
-                                <% } %>
-                                <div class="parcours-arrow">→</div>
-                                <div class="parcours-step">Aéroport</div>
-                            </div>
+                                        <div class="parcours-step">Aéroport</div>
+                                    </div>
 
-                            <div class="section-title">📋 Réservations assignées (<%= vt.getReservations().size() %>)</div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Réf. Client</th>
-                                        <th>Hôtel</th>
-                                        <th>Heure</th>
-                                        <th>Personnes</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% for (Reservation r : vt.getReservations()) { 
-                                            // compute estimated arrival time for this reservation from vt.etapeHeures
-                                            java.sql.Time est = null;
-                                            java.util.List<java.sql.Time> et = vt.getEtapeHeures();
-                                            if (et != null && vt.getHotels() != null) {
-                                                int idx = vt.getHotels().indexOf(r.getHotelNom());
-                                                if (idx >= 0 && et.size() > idx+1) est = et.get(idx+1);
+                                    <!-- Réservations -->
+                                    <div class="section-title">
+                                        📋 Réservations (<%= tt.getReservations() != null ? tt.getReservations().size() : 0 %>)
+                                    </div>
+
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Client</th>
+                                                <th>Hôtel</th>
+                                                <th>Heure</th>
+                                                <th>Personnes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+
+                                            <% for (Reservation r : tt.getReservations()) { %>
+                                                <tr>
+                                                    <td>#<%= r.getId() %></td>
+                                                    <td><%= r.getRefClient() %></td>
+                                                    <td><%= r.getHotelNom() %></td>
+                                                    <td>
+                                                        <%= r.getHeureArrivee() != null ? sdf.format(r.getHeureArrivee()) : "—" %>
+                                                    </td>
+                                                    <td><%= r.getNombrePersonnes() %></td>
+                                                </tr>
+                                            <% } %>
+
+                                        </tbody>
+                                    </table>
+
+                                    <!-- Étapes -->
+                                    <div class="section-title">⏱️ Étapes</div>
+
+                                    <table>
+                                        <tr>
+                                            <th>Étape</th>
+                                            <th>Heure</th>
+                                        </tr>
+
+                                        <tr>
+                                            <td>Aéroport</td>
+                                            <td>
+                                                <%= tt.getTrajet().getHeureDepart() != null ? sdf.format(tt.getTrajet().getHeureDepart()) : "—" %>
+                                            </td>
+                                        </tr>
+
+                                        <%
+                                            List<java.sql.Time> etapes = tt.getEtapeHeures();
+
+                                            if (tt.getHotels() != null && etapes != null) {
+                                            for (int i = 0; i < tt.getHotels().size(); i++) {
+
+                                                String hTime = "—";
+
+                                                if (etapes.size() > i+1 && etapes.get(i+1) != null) {
+                                                    hTime = sdf.format(etapes.get(i+1));
                                             }
-                                    %>
-                                    <tr>
-                                        <td><span class="badge badge-id">#<%= r.getId() %></span></td>
-                                        <td><strong><%= r.getRefClient() %></strong></td>
-                                        <td><%= r.getHotelNom() %></td>
-                                        <td><%= est != null ? est.toString().substring(0,8) : (r.getHeureArrivee()!=null? r.getHeureArrivee().toString().substring(0,8): "—") %></td>
-                                        <td><span class="badge badge-persons">👤 <%= r.getNombrePersonnes() %></span></td>
-                                    </tr>
-                                    <% } %>
-                                </tbody>
-                            </table>
-
-                            <%-- Removed JSON list: informations already shown in the reservations table above --%>
-
-                            <div style="margin-top:12px">
-                                <div class="section-title">⏱️ Détail des étapes (heures)</div>
-                                <table>
-                                    <thead>
-                                        <tr><th>Étape</th><th>Horaire</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td>Aéroport (départ)</td><td><%= vt.getHeureDepart() != null ? vt.getHeureDepart() : "—" %></td></tr>
-                                        <% if (vt.getHotels() != null && !vt.getHotels().isEmpty()) {
-                                            java.util.List<java.sql.Time> etapes = vt.getEtapeHeures();
-                                            for (int hidx = 0; hidx < vt.getHotels().size(); hidx++) {
-                                                String hotelName = vt.getHotels().get(hidx);
-                                                String displayTime = "—";
-                                                // prefer computed etape time (etapes list: [Aéroport, h1, h2, ..., Aéroport])
-                                                if (etapes != null && etapes.size() > hidx+1 && etapes.get(hidx+1) != null) {
-                                                    try { displayTime = etapes.get(hidx+1).toString().substring(0,8); } catch (Exception _e) { displayTime = etapes.get(hidx+1).toString(); }
-                                                } else {
-                                                    // fallback: concatenate reservation declared times for this hotel
-                                                    StringBuilder times = new StringBuilder();
-                                                    for (Reservation rr : vt.getReservations()) {
-                                                        if (hotelName != null && hotelName.equals(rr.getHotelNom())) {
-                                                            if (times.length() > 0) times.append(", ");
-                                                            if (rr.getHeureArrivee() != null) times.append(rr.getHeureArrivee().toString().substring(0,8)); else times.append("—");
-                                                        }
-                                                    }
-                                                    if (times.length() > 0) displayTime = times.toString();
-                                                }
                                         %>
                                             <tr>
-                                                <td><%= hotelName %></td>
-                                                <td><%= displayTime %></td>
+                                                <td><%= tt.getHotels().get(i) %></td>
+                                                <td><%= hTime %></td>
                                             </tr>
-                                        <%  }
-                                        } %>
-                                        <tr><td>Aéroport (retour)</td><td><%= vt.getHeureRetour() != null ? vt.getHeureRetour() : "—" %></td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                                        <%      }
+                                            } %>
+
+                                        <tr>
+                                            <td>Aéroport</td>
+                                            <td>
+                                                <%= tt.getTrajet().getHeureArrivee() != null ? sdf.format(tt.getTrajet().getHeureArrivee()) : "—" %>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                </div> <!-- fin trajet -->
+
+                            <% 
+                                } // fin for trajets
+                            } // fin if trajets 
+                            %>
+
+                        </div> <!-- fin véhicule -->
+
                     <% } %>
+
                 <% } else { %>
                     <div class="no-data">
                         <div class="no-data-icon">📭</div>
-                        <p>Aucun véhicule avec des réservations pour cette date.</p>
+                        <p>Aucun véhicule avec des trajets pour cette date.</p>
                     </div>
                 <% } %>
 
@@ -200,6 +253,7 @@
                         <span>Retour</span>
                     </a>
                 </div>
+
             </div>
         </div>
     </div>
