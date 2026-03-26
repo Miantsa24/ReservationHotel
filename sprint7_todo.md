@@ -338,3 +338,70 @@ Afficher : dans tracabilite
   1. DB + Models
   2. AllocationService
   3. Intégration + UI
+
+---
+
+# 📊 ÉTAT D'AVANCEMENT SPRINT 7
+
+## ✅ Tâches COMPLÉTÉES (Dev1 - Alexandra)
+
+- [x] DB Migration : `assigned_count` dans reservations, `passengers_assigned` dans reservation_vehicule
+- [x] Modèle Reservation : `assignedCount`, `getRemaining()` (calcul dynamique)
+- [x] Modèle ReservationVehicule : `passengersAssigned`
+- [x] ReservationDAO : `updateAssignedCount()`, lecture `assigned_count`
+- [x] ReservationVehiculeDAO : `insertReservationVehicule()`, `findAllByReservationId()`, `sumAssignedByVehicule()`
+- [x] `GroupingService.allocateForGroup()` : Algorithme complet avec fragmentation et scoring
+- [x] Intégration dans `computeProposalWithVirtualAvailability()` (appel à allocateForGroup)
+- [x] `GroupingService.persistAllocationResult()` : Méthode complète avec `passengers_assigned` et `ASSIGNE_PARTIEL`
+- [x] Test unitaire : `GroupingServiceSprint7Dev1Test`
+- [x] `assignation-detail.jsp` : Affichage proposition avec résumé véhicules
+
+---
+
+## ❌ Tâches RESTANTES (Dev2 - Tojo)
+
+### 🔴 PRIORITÉ CRITIQUE
+
+- [ ] **Endpoint contrôleur pour `persistAllocationResult`**
+  - `persistAllocationResult()` existe mais n'est **JAMAIS appelé**
+  - Créer endpoint HTTP/action manuelle pour déclencher la persistance
+  - Brancher sur le bouton "Confirmer et persister" dans `assignation-detail.jsp`
+
+- [ ] **Filtrer vehicule_trajet avec `passengers_assigned > 0`**
+  - Seules les réservations avec `passengers_assigned > 0` doivent créer des trajets
+  - Modifier la construction de `vehicule_trajet` pour ce filtre
+
+### 🟡 PRIORITÉ IMPORTANTE
+
+- [ ] **Tests d'intégration end-to-end**
+  - Réactiver `GroupingServiceTest.java` (actuellement commenté)
+  - Réactiver `ComputeConfirmIntegrationTest.java` (actuellement commenté)
+  - Pipeline complet : grouping → allocation → persist → création trajet
+
+- [ ] **UI/JSP - Affichage complet Sprint 7**
+  - `tracabilite-resultat.jsp` : afficher `passengers_assigned` par réservation/véhicule
+  - `assignation-detail.jsp` : afficher `assigned_count`, `remaining` par réservation
+  - Afficher clairement les allocations fragmentées (multiple véhicules par réservation)
+
+### 🟢 PRIORITÉ OPTIONNELLE
+
+- [ ] **Backfill/migration**
+  - Script pour initialiser `assigned_count` sur données existantes
+  - Vérification cohérence historique
+
+- [ ] **Concurrence/verrou**
+  - Stratégie optimiste ou mutex DB pour éviter sur-affectation
+  - Transaction atomique déjà en place, vérifier suffisance
+
+- [ ] **CI/tests**
+  - Étendre tests unitaires (overflow, égalité, fragmentation multiple)
+  - Intégrer nouveaux tests d'intégration dans pipeline CI
+
+---
+
+## 🎯 Prochaines étapes recommandées
+
+1. **Brancher `persistAllocationResult`** sur le flux de confirmation (AssignationController)
+2. **Ajouter filtre `passengers_assigned > 0`** pour vehicule_trajet
+3. **Réactiver les tests d'intégration**
+4. **Compléter l'UI** dans tracabilité

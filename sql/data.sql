@@ -42,5 +42,5 @@ INSERT INTO distance (`from`, `to`, km) VALUES
 
    INSERT INTO vehicules (id, marque, capacite, typeCarburant, vitesseMoyenne, tempsAttente, available_from, trajets_effectues) VALUES
 (1, 'Vehicule 1', 8, 'diesel', 60.00, 30, NULL, 0),
-(2, 'Vehicule 2', 5, 'diesel', 60.00, 30, NULL, 0);
+(2, 'Vehicule 2', 3, 'diesel', 60.00, 30, NULL, 0);
 

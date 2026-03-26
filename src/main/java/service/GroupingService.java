@@ -328,8 +328,20 @@ public class GroupingService {
      * Compute-only: construit une proposition d'affectation pour une date donnée
      * sans effectuer de persistance. Retourne un AssignmentProposal détaillant
      * les groupes, la proposition par réservation et le résumé par véhicule.
+     *
+     * Sprint 7: Utilise le nouvel algorithme avec fragmentation et scoring.
      */
     public models.AssignmentProposal computeAssignmentsForDate(Date date) throws SQLException {
+        // Sprint 7: Déléguer au nouvel algorithme avec fragmentation
+        return computeAssignmentsSprint7ForDate(date);
+    }
+
+    /**
+     * ANCIEN ALGORITHME (conservé pour référence/rollback si nécessaire)
+     * Utilise selectVehicleForTmp (1 réservation → 1 véhicule, pas de fragmentation)
+     */
+    @Deprecated
+    public models.AssignmentProposal computeAssignmentsForDateLegacy(Date date) throws SQLException {
         models.AssignmentProposal proposal = new models.AssignmentProposal();
         proposal.setDate(date);
 
@@ -575,6 +587,9 @@ public class GroupingService {
                 int need = best.getRemaining();
                 int assign = Math.min(free, need);
 
+                // Sprint 7: ne créer ReservationVehicule que si passagers > 0
+                if (assign <= 0) break;
+
                 // create reservation_vehicule assignment in memory
                 ReservationVehicule rv = new ReservationVehicule(best.getId(), vid);
                 rv.setPassengersAssigned(assign);
@@ -609,7 +624,7 @@ public class GroupingService {
         // interference with DAOs that open/close the shared connection.
         String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
         String user = System.getProperty("db.user", "root");
-        String pass = System.getProperty("db.password", "root");
+        String pass = System.getProperty("db.password", "");
         try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
             boolean previousAuto = conn.getAutoCommit();
             conn.setAutoCommit(false);
@@ -716,6 +731,176 @@ public class GroupingService {
     }
     
     /**
+     * Sprint 7: Compute assignments using the new allocation algorithm with fragmentation support.
+     * Returns an AssignmentProposal compatible with the existing UI.
+     */
+    public models.AssignmentProposal computeAssignmentsSprint7ForDate(Date date) throws SQLException {
+        models.AssignmentProposal proposal = new models.AssignmentProposal();
+        proposal.setDate(date);
+
+        List<Group> groups = groupReservationsByDate(date);
+        List<Vehicule> allVehicules = vehiculeDAO.findAll();
+
+        // Disponibilité virtuelle des véhicules (mise à jour après chaque groupe)
+        Map<Integer, Timestamp> virtualAvailableFrom = new HashMap<>();
+
+        for (Group g : groups) {
+            models.AssignmentProposal.GroupProposal gp = new models.AssignmentProposal.GroupProposal();
+            gp.departureTime = g.departureTime;
+
+            // Calculer le timestamp du départ du groupe
+            java.time.LocalDateTime groupDepartLdt = java.time.LocalDateTime.of(date.toLocalDate(), g.departureTime.toLocalTime());
+            java.sql.Timestamp groupDepartTs = java.sql.Timestamp.valueOf(groupDepartLdt);
+
+            // Filtrer les véhicules disponibles pour ce groupe
+            List<Vehicule> availableVehicules = new ArrayList<>();
+            for (Vehicule v : allVehicules) {
+                Timestamp virtualAv = virtualAvailableFrom.get(v.getId());
+                Timestamp realAv = v.getAvailableFrom();
+                Timestamp effectiveAv = null;
+
+                if (virtualAv != null && realAv != null) {
+                    effectiveAv = virtualAv.after(realAv) ? virtualAv : realAv;
+                } else if (virtualAv != null) {
+                    effectiveAv = virtualAv;
+                } else if (realAv != null) {
+                    effectiveAv = realAv;
+                }
+
+                // Véhicule disponible si effectiveAv <= groupDepartTs ou pas de contrainte
+                if (effectiveAv == null || !effectiveAv.after(groupDepartTs)) {
+                    availableVehicules.add(v);
+                }
+            }
+
+            // Utiliser allocateForGroup avec les véhicules disponibles
+            AllocationResult allocResult = allocateForGroup(date, g.departureTime, g.reservations, availableVehicules);
+
+            // Convertir AllocationResult en ReservationProposal pour l'UI
+            // Map reservationId -> list of (vehiculeId, passengersAssigned)
+            Map<Integer, List<int[]>> assignmentsByReservation = new HashMap<>();
+            for (ReservationVehicule rv : allocResult.assignments) {
+                assignmentsByReservation.computeIfAbsent(rv.getIdReservation(), k -> new ArrayList<>())
+                    .add(new int[]{rv.getIdVehicule(), rv.getPassengersAssigned()});
+            }
+
+            // Créer les ReservationProposal pour chaque réservation du groupe
+            for (Reservation r : g.reservations) {
+                models.AssignmentProposal.ReservationProposal rp = new models.AssignmentProposal.ReservationProposal();
+                rp.reservationId = r.getId();
+
+                List<int[]> assignments = assignmentsByReservation.get(r.getId());
+                if (assignments != null && !assignments.isEmpty()) {
+                    // Sprint 7: peut avoir plusieurs véhicules, on prend le premier pour proposedVehiculeId
+                    // et on stocke les détails dans les champs supplémentaires
+                    rp.proposedVehiculeId = assignments.get(0)[0];
+
+                    // Calculer le total assigné pour cette réservation
+                    int totalAssigned = 0;
+                    StringBuilder vehicleDetails = new StringBuilder();
+                    for (int[] a : assignments) {
+                        totalAssigned += a[1];
+                        if (vehicleDetails.length() > 0) vehicleDetails.append(", ");
+                        vehicleDetails.append("V").append(a[0]).append(":").append(a[1]).append("p");
+                    }
+                    rp.passengersAssigned = totalAssigned;
+                    rp.vehicleAssignments = vehicleDetails.toString();
+
+                    // Si partiellement assigné
+                    if (totalAssigned < r.getNombrePersonnes()) {
+                        rp.reason = "PARTIAL";
+                    }
+                } else {
+                    rp.proposedVehiculeId = null;
+                    rp.reason = "NO_VEHICLE";
+                    rp.passengersAssigned = 0;
+                }
+                gp.reservations.add(rp);
+            }
+
+            // Calculer l'heure de départ effective (dernier vol assigné)
+            Time actualDepartureTime = null;
+            for (Reservation r : g.reservations) {
+                List<int[]> assignments = assignmentsByReservation.get(r.getId());
+                if (assignments != null && !assignments.isEmpty()) {
+                    if (actualDepartureTime == null || r.getHeureArrivee().after(actualDepartureTime)) {
+                        actualDepartureTime = r.getHeureArrivee();
+                    }
+                }
+            }
+            if (actualDepartureTime != null) {
+                gp.departureTime = actualDepartureTime;
+            }
+
+            // Construire les VehicleSummary pour chaque véhicule utilisé
+            Map<Integer, List<ReservationVehicule>> assignmentsByVehicle = new HashMap<>();
+            for (ReservationVehicule rv : allocResult.assignments) {
+                assignmentsByVehicle.computeIfAbsent(rv.getIdVehicule(), k -> new ArrayList<>()).add(rv);
+            }
+
+            for (Map.Entry<Integer, List<ReservationVehicule>> entry : assignmentsByVehicle.entrySet()) {
+                int vid = entry.getKey();
+                List<ReservationVehicule> rvList = entry.getValue();
+
+                models.AssignmentProposal.VehicleSummary vs = proposal.getVehicleSummaries()
+                    .getOrDefault(vid, new models.AssignmentProposal.VehicleSummary());
+                vs.vehiculeId = vid;
+
+                // Ajouter les réservations et calculer les métriques
+                List<Reservation> assignedResas = new ArrayList<>();
+                int totalPassengers = 0;
+                for (ReservationVehicule rv : rvList) {
+                    vs.reservationIds.add(rv.getIdReservation());
+                    vs.passengersPerReservation.put(rv.getIdReservation(), rv.getPassengersAssigned());
+                    totalPassengers += rv.getPassengersAssigned();
+                    Reservation res = reservationDAO.findById(rv.getIdReservation());
+                    if (res != null) assignedResas.add(res);
+                }
+                vs.totalPassengers = totalPassengers;
+
+                // Calculer les métriques du trajet
+                try {
+                    vs.estimatedKilometrage = tracabiliteService.calculerDistanceTotale(assignedResas);
+                    if (actualDepartureTime != null) {
+                        java.time.LocalDateTime departLdt = java.time.LocalDateTime.of(date.toLocalDate(), actualDepartureTime.toLocalTime());
+                        vs.heureDepart = java.sql.Timestamp.valueOf(departLdt);
+                    }
+
+                    Vehicule veh = vehiculeDAO.findById(vid);
+                    if (veh != null && vs.estimatedKilometrage > 0 && veh.getVitesseMoyenne() != null
+                            && veh.getVitesseMoyenne().compareTo(BigDecimal.ZERO) != 0) {
+                        double vitesse = veh.getVitesseMoyenne().doubleValue();
+                        double heures = vs.estimatedKilometrage / vitesse;
+                        long ms = (long) (heures * 3600 * 1000);
+                        if (vs.heureDepart != null) {
+                            vs.heureArrivee = new java.sql.Timestamp(vs.heureDepart.getTime() + ms);
+                        }
+                    }
+                } catch (SQLException ex) {
+                    // ignore estimation failures
+                }
+
+                proposal.getVehicleSummaries().put(vid, vs);
+
+                // Mettre à jour la disponibilité virtuelle
+                if (vs.heureArrivee != null) {
+                    Timestamp currentVirtual = virtualAvailableFrom.get(vid);
+                    if (currentVirtual == null || vs.heureArrivee.after(currentVirtual)) {
+                        virtualAvailableFrom.put(vid, vs.heureArrivee);
+                    }
+                }
+            }
+
+            // Stocker les infos de fragmentation dans le groupe
+            gp.allocationResult = allocResult;
+
+            proposal.getGroups().add(gp);
+        }
+
+        return proposal;
+    }
+
+    /**
      * Persist an AllocationResult produced by `allocateForGroup` in a single DB transaction.
      */
     public void persistAllocationResult(Date date, AllocationResult alloc, Time windowStart) throws SQLException {
@@ -757,6 +942,9 @@ public class GroupingService {
                 Map<Integer, Integer> assignedDeltaPerReservation = new HashMap<>();
 
                 for (ReservationVehicule rv : alloc.assignments) {
+                    // Sprint 7: ne créer que si passengers_assigned > 0
+                    if (rv.getPassengersAssigned() <= 0) continue;
+
                     insertRvStmt.setInt(1, rv.getIdReservation());
                     insertRvStmt.setInt(2, rv.getIdVehicule());
                     insertRvStmt.setInt(3, rv.getPassengersAssigned());

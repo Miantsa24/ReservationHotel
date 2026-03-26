@@ -156,48 +156,59 @@ public class AssignationController {
 
             models.AssignmentProposal.GroupProposal gp = full.getGroups().get(groupIndex);
 
-            // Build sub-proposal containing only vehicle summaries for this group
-            models.AssignmentProposal sub = new models.AssignmentProposal();
-            sub.setDate(full.getDate());
-
-            // collect vehicle ids used in this group from reservation proposals
+            // Optimistic checks: reservations still EN_ATTENTE and vehicles available
             java.util.Set<Integer> vehicleIds = new java.util.HashSet<>();
             for (models.AssignmentProposal.ReservationProposal rp : gp.reservations) {
                 if (rp.proposedVehiculeId != null) vehicleIds.add(rp.proposedVehiculeId);
+                // Check reservation status
+                models.Reservation r = reservationDAO.findById(rp.reservationId);
+                if (r == null || r.getStatus() == null || !"EN_ATTENTE".equals(r.getStatus())) {
+                    mv.addItem("error", "Échec: la réservation #" + rp.reservationId + " n'est plus en statut EN_ATTENTE.");
+                    return mv;
+                }
             }
 
-            // copy relevant vehicle summaries
+            // Check vehicle availability
+            for (Integer vid : vehicleIds) {
+                models.AssignmentProposal.VehicleSummary vs = full.getVehicleSummaries().get(vid);
+                if (vs != null) {
+                    models.Vehicule v = vehiculeDAO.findById(vid);
+                    if (v != null && v.getAvailableFrom() != null && vs.heureDepart != null) {
+                        if (v.getAvailableFrom().after(vs.heureDepart)) {
+                            mv.addItem("error", "Échec: le véhicule #" + vid + " n'est pas disponible pour ce créneau.");
+                            return mv;
+                        }
+                    }
+                }
+            }
+
+            // Sprint 7: utiliser persistAllocationResult avec AllocationResult
+            if (gp.allocationResult != null) {
+                service.GroupingService.AllocationResult allocResult =
+                    (service.GroupingService.AllocationResult) gp.allocationResult;
+                groupingService.persistAllocationResult(date, allocResult, gp.departureTime);
+                mv.addItem("resultMessage", "Assignations du groupe persistées avec succès (Sprint 7).");
+            } else {
+                // Fallback: ancien comportement si pas d'AllocationResult
+                models.AssignmentProposal sub = new models.AssignmentProposal();
+                sub.setDate(full.getDate());
+                for (Integer vid : vehicleIds) {
+                    models.AssignmentProposal.VehicleSummary vs = full.getVehicleSummaries().get(vid);
+                    if (vs != null) sub.getVehicleSummaries().put(vid, vs);
+                }
+                sub.getGroups().add(gp);
+                groupingService.persistAssignments(sub);
+                mv.addItem("resultMessage", "Assignations du groupe persistées avec succès (legacy).");
+            }
+
+            // Build response proposal for display
+            models.AssignmentProposal sub = new models.AssignmentProposal();
+            sub.setDate(full.getDate());
             for (Integer vid : vehicleIds) {
                 models.AssignmentProposal.VehicleSummary vs = full.getVehicleSummaries().get(vid);
                 if (vs != null) sub.getVehicleSummaries().put(vid, vs);
             }
-
-            // copy the group so that non-assigned reservations can be updated
             sub.getGroups().add(gp);
-
-            // Optimistic checks: reservations still EN_ATTENTE and vehicles available
-            for (models.AssignmentProposal.VehicleSummary vs : sub.getVehicleSummaries().values()) {
-                // check reservations
-                for (Integer rid : vs.reservationIds) {
-                    models.Reservation r = reservationDAO.findById(rid);
-                    if (r == null || r.getStatus() == null || !"EN_ATTENTE".equals(r.getStatus())) {
-                        mv.addItem("error", "Échec: la réservation #" + rid + " n'est plus en statut EN_ATTENTE.");
-                        return mv;
-                    }
-                }
-                // check vehicle availability
-                models.Vehicule v = vehiculeDAO.findById(vs.vehiculeId);
-                if (v != null && v.getAvailableFrom() != null && vs.heureDepart != null) {
-                    if (v.getAvailableFrom().after(vs.heureDepart)) {
-                        mv.addItem("error", "Échec: le véhicule #" + vs.vehiculeId + " n'est pas disponible pour ce créneau.");
-                        return mv;
-                    }
-                }
-            }
-
-            // Persist sub-proposal atomically
-            groupingService.persistAssignments(sub);
-            mv.addItem("resultMessage", "Assignations du groupe persistées avec succès.");
             mv.addItem("proposal", sub);
             return mv;
         } catch (SQLException e) {
@@ -277,9 +288,25 @@ public class AssignationController {
             java.sql.Time time = java.sql.Time.valueOf(heureStr);
             // Recompute proposal to avoid trusting client-sent payload and to ensure freshness
             AssignmentProposal proposal = groupingService.computeAssignmentsForDate(date);
-            // Persist computed proposal in an atomic transaction
-            groupingService.persistAssignments(proposal);
-            mv.addItem("resultMessage", "Assignations persistées avec succès.");
+
+            // Sprint 7: persister chaque groupe avec persistAllocationResult
+            int persistedGroups = 0;
+            for (AssignmentProposal.GroupProposal gp : proposal.getGroups()) {
+                if (gp.allocationResult != null) {
+                    service.GroupingService.AllocationResult allocResult =
+                        (service.GroupingService.AllocationResult) gp.allocationResult;
+                    groupingService.persistAllocationResult(date, allocResult, gp.departureTime);
+                    persistedGroups++;
+                }
+            }
+
+            if (persistedGroups > 0) {
+                mv.addItem("resultMessage", "Assignations persistées avec succès (Sprint 7 - " + persistedGroups + " groupe(s)).");
+            } else {
+                // Fallback: ancien comportement si aucun AllocationResult
+                groupingService.persistAssignments(proposal);
+                mv.addItem("resultMessage", "Assignations persistées avec succès (legacy).");
+            }
             mv.addItem("proposal", proposal);
         } catch (SQLException e) {
             mv.addItem("error", "Erreur lors de la persistance: " + e.getMessage());
