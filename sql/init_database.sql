@@ -106,3 +106,35 @@ ALTER TABLE `vehicules`
    ADD COLUMN `trajets_effectues` INT DEFAULT 0;
 
 
+//Sprint7
+-- =============================================
+-- 1) Ajouter assigned_count à reservations
+-- =============================================
+ALTER TABLE reservations
+  ADD COLUMN assigned_count INT NOT NULL DEFAULT 0 COMMENT 'Nombre total de passagers assignés à des véhicules',
+
+-- Mettre à jour assigned_count pour les réservations existantes
+-- Comme reservation_vehicule n’a pas passengers_assigned pour l’instant, on initialise assigned_count à 0
+UPDATE reservations
+SET assigned_count = 0;
+
+-- =============================================
+-- 2) Ajouter passengers_assigned à reservation_vehicule
+-- =============================================
+ALTER TABLE reservation_vehicule
+  ADD COLUMN passengers_assigned INT NOT NULL DEFAULT 0 COMMENT 'Nombre de passagers de cette réservation assignés à ce véhicule';
+
+-- =============================================
+-- 3) Index pour accélérer les calculs et recherches
+-- =============================================
+CREATE INDEX idx_reservation_vehicule_id_reservation ON reservation_vehicule(id_reservation);
+CREATE INDEX idx_reservation_vehicule_id_vehicule ON reservation_vehicule(id_vehicule);
+
+-- =============================================
+-- 4) Contrainte logique (application côté code)
+--    SUM(passengers_assigned) <= reservations.nombre_personnes
+--    sera géré transactionnellement côté AllocationService
+-- =============================================
+-- Pas de contrainte SQL stricte ici pour éviter blocage sur insertions partielles
+
+

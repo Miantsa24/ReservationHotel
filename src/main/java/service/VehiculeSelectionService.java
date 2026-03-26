@@ -47,7 +47,7 @@ public class VehiculeSelectionService {
             Vehicule vehicule = selectionnerVehicule(nombrePersonnes);
             if (vehicule != null) {
                 ReservationVehicule rv = new ReservationVehicule(idReservation, vehicule.getId());
-                reservationVehiculeDAO.save(rv);
+                reservationVehiculeDAO.insertReservationVehicule(rv);
             }
             return vehicule;
         }
@@ -55,7 +55,7 @@ public class VehiculeSelectionService {
         Vehicule vehicule = selectionnerVehiculeForReservation(reservation);
         if (vehicule != null) {
             ReservationVehicule rv = new ReservationVehicule(idReservation, vehicule.getId());
-            reservationVehiculeDAO.save(rv);
+            reservationVehiculeDAO.insertReservationVehicule(rv);
 
             // Mettre à jour available_from du véhicule :
             // - si le véhicule est désormais plein pour la date, ou
@@ -332,7 +332,7 @@ public class VehiculeSelectionService {
         for (Reservation r : reservations) {
             Vehicule v = selectionnerVehiculeForReservation(r);
             if (v != null) {
-                reservationVehiculeDAO.save(new ReservationVehicule(r.getId(), v.getId()));
+                reservationVehiculeDAO.insertReservationVehicule(new ReservationVehicule(r.getId(), v.getId()));
             }
             result.put(r.getId(), v);
         }

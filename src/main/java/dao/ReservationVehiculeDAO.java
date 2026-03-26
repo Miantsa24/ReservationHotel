@@ -8,26 +8,26 @@ import java.util.List;
 
 public class ReservationVehiculeDAO {
 
-    /**
-     * Insère une association réservation-véhicule
-     */
-    public void save(ReservationVehicule rv) throws SQLException {
-        String sql = "INSERT INTO reservation_vehicule (id_reservation, id_vehicule) VALUES (?, ?)";
+      /**
+ * Insère une association réservation-véhicule avec nombre de passagers assignés.
+ */
+public void insertReservationVehicule(ReservationVehicule rv) throws SQLException {
+    String sql = "INSERT INTO reservation_vehicule (id_reservation, id_vehicule, passengers_assigned) VALUES (?, ?, ?)";
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        stmt.setInt(1, rv.getIdReservation());
+        stmt.setInt(2, rv.getIdVehicule());
+        stmt.setInt(3, rv.getPassengersAssigned()); // Sprint7
+        stmt.executeUpdate();
 
-            stmt.setInt(1, rv.getIdReservation());
-            stmt.setInt(2, rv.getIdVehicule());
-            stmt.executeUpdate();
-
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    rv.setId(generatedKeys.getInt(1));
-                }
+        try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+            if (generatedKeys.next()) {
+                rv.setId(generatedKeys.getInt(1));
             }
         }
     }
+}
 
     /**
      * Récupère le véhicule assigné à une réservation
@@ -100,7 +100,7 @@ public class ReservationVehiculeDAO {
      * Retourne la somme des `nombre_personnes` des réservations assignées.
      */
     public int getOccupiedCapacityForDateTime(int idVehicule, Date date, Time time) throws SQLException {
-        String sql = "SELECT SUM(r.nombre_personnes) as total " +
+        String sql = "SELECT SUM(rv.passengers_assigned) as total " +
                      "FROM reservation_vehicule rv " +
                      "JOIN reservations r ON rv.id_reservation = r.id " +
                      "WHERE rv.id_vehicule = ? AND r.date_arrivee = ? AND r.heure_arrivee = ?";
@@ -125,7 +125,7 @@ public class ReservationVehiculeDAO {
      * Calcule la capacité occupée pour un véhicule sur une date (toutes heures confondues).
      */
     public int getOccupiedCapacityForDate(int idVehicule, Date date) throws SQLException {
-        String sql = "SELECT SUM(r.nombre_personnes) as total " +
+        String sql = "SELECT SUM(rv.passengers_assigned) as total " +
                      "FROM reservation_vehicule rv " +
                      "JOIN reservations r ON rv.id_reservation = r.id " +
                      "WHERE rv.id_vehicule = ? AND r.date_arrivee = ?";
@@ -153,6 +153,12 @@ public class ReservationVehiculeDAO {
         try {
             int trajetId = rs.getInt("vehicule_trajet_id");
             if (!rs.wasNull()) rv.setVehiculeTrajetId(trajetId);
+        } catch (SQLException e) {
+            // colonne peut ne pas exister selon schéma; ignorer
+        }
+        try {
+            int pax = rs.getInt("passengers_assigned");
+            if (!rs.wasNull()) rv.setPassengersAssigned(pax);
         } catch (SQLException e) {
             // colonne peut ne pas exister selon schéma; ignorer
         }
@@ -209,6 +215,47 @@ public class ReservationVehiculeDAO {
         } catch (SQLException e) {
             // ignore if not present
         }
+        try {
+            int assigned = rs.getInt("assigned_count");
+            if (!rs.wasNull()) r.setAssignedCount(assigned);
+        } catch (SQLException e) {
+            // colonne peut ne pas exister; ignore
+        }
         return r;
     }
+
+    /**
+ * Somme des passagers assignés pour un véhicule donné (toutes réservations confondues).
+ */
+public int sumAssignedByVehicule(int idVehicule) throws SQLException {
+    String sql = "SELECT SUM(passengers_assigned) as total FROM reservation_vehicule WHERE id_vehicule = ?";
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        stmt.setInt(1, idVehicule);
+        try (ResultSet rs = stmt.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("total");
+            }
+        }
+    }
+    return 0;
+}
+
+/**
+ * Récupère toutes les associations pour une réservation donnée
+ */
+public List<ReservationVehicule> findAllByReservationId(int idReservation) throws SQLException {
+    List<ReservationVehicule> list = new ArrayList<>();
+    String sql = "SELECT * FROM reservation_vehicule WHERE id_reservation = ?";
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        stmt.setInt(1, idReservation);
+        try (ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapResultSet(rs));
+            }
+        }
+    }
+    return list;
+}
 }

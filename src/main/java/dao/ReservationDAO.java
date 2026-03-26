@@ -195,6 +195,25 @@ public class ReservationDAO {
             reservation.setStatus("EN_ATTENTE");
         }
         reservation.setHotelNom(rs.getString("hotel_nom"));
+        try {
+            int assigned = rs.getInt("assigned_count");
+            if (!rs.wasNull()) reservation.setAssignedCount(assigned);
+        } catch (SQLException e) {
+            // colonne peut ne pas exister; ignore
+        }
         return reservation;
+    }
+
+    /**
+ * Met à jour le nombre de passagers assignés pour une réservation.
+ */
+    public void updateAssignedCount(int reservationId, int newAssignedCount) throws SQLException {
+        String sql = "UPDATE reservations SET assigned_count = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, newAssignedCount);
+            stmt.setInt(2, reservationId);
+            stmt.executeUpdate();
+        }
     }
 }

@@ -148,7 +148,7 @@ public class AssignationService {
 
                 // persist assignment
                 ReservationVehicule rv = new ReservationVehicule(r.getId(), chosen.getId());
-                reservationVehiculeDAO.save(rv);
+                reservationVehiculeDAO.insertReservationVehicule(rv);
                 reservationDAO.updateStatus(r.getId(), "ASSIGNE");
                 assigned++;
                 vehiculesAssignes.add(chosen.getId());
