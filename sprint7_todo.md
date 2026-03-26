@@ -73,7 +73,7 @@ Maintenant : traitement **par groupe complet**
 ---
 
 ### 2. Fragmentation des réservations
-Une réservation peut être répartie sur plusieurs véhicules.
+Une réservation (les passagers de la reservation) peut être répartie sur plusieurs véhicules.
 
 ---
 

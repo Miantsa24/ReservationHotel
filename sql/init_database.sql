@@ -106,12 +106,12 @@ ALTER TABLE `vehicules`
    ADD COLUMN `trajets_effectues` INT DEFAULT 0;
 
 
-//Sprint7
+-- //Sprint7
 -- =============================================
 -- 1) Ajouter assigned_count à reservations
 -- =============================================
 ALTER TABLE reservations
-  ADD COLUMN assigned_count INT NOT NULL DEFAULT 0 COMMENT 'Nombre total de passagers assignés à des véhicules',
+  ADD COLUMN assigned_count INT NOT NULL DEFAULT 0 COMMENT 'Nombre total de passagers assignés à des véhicules';
 
 -- Mettre à jour assigned_count pour les réservations existantes
 -- Comme reservation_vehicule n’a pas passengers_assigned pour l’instant, on initialise assigned_count à 0
@@ -141,16 +141,16 @@ CREATE INDEX idx_reservation_vehicule_id_vehicule ON reservation_vehicule(id_veh
 -- Sprint 7 Migration Script
 -- Exécuter ce script sur la base hotel_db
 
--- -- 1. Ajouter assigned_count à reservations
--- ALTER TABLE reservations ADD COLUMN IF NOT EXISTS assigned_count INT NOT NULL DEFAULT 0;
+-- 1. Ajouter assigned_count à reservations
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS assigned_count INT NOT NULL DEFAULT 0;
 
--- -- 2. Ajouter passengers_assigned à reservation_vehicule
--- ALTER TABLE reservation_vehicule ADD COLUMN IF NOT EXISTS passengers_assigned INT NOT NULL DEFAULT 0;
+-- 2. Ajouter passengers_assigned à reservation_vehicule
+ALTER TABLE reservation_vehicule ADD COLUMN IF NOT EXISTS passengers_assigned INT NOT NULL DEFAULT 0;
 
--- -- 3. Index pour performance (optionnel)
--- CREATE INDEX IF NOT EXISTS idx_rv_passengers ON reservation_vehicule(passengers_assigned);
+-- 3. Index pour performance (optionnel)
+CREATE INDEX IF NOT EXISTS idx_rv_passengers ON reservation_vehicule(passengers_assigned);
 
--- -- 4. Vérification
--- SELECT 'Migration Sprint 7 terminée!' AS status;
--- SHOW COLUMNS FROM reservations LIKE 'assigned_count';
--- SHOW COLUMNS FROM reservation_vehicule LIKE 'passengers_assigned';
+-- 4. Vérification
+SELECT 'Migration Sprint 7 terminée!' AS status;
+SHOW COLUMNS FROM reservations LIKE 'assigned_count';
+SHOW COLUMNS FROM reservation_vehicule LIKE 'passengers_assigned';

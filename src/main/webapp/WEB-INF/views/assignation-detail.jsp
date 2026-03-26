@@ -5,6 +5,7 @@
 <%@ page import="models.AssignmentProposal" %>
 <%@ page import="dao.ReservationDAO" %>
 <%@ page import="dao.VehiculeDAO" %>
+<%@ page import="dao.ReservationVehiculeDAO" %>
 <%@ page import="java.sql.SQLException" %>
 <%@ page import="java.sql.Date" %>
 <%@ page import="java.sql.Time" %>
@@ -16,6 +17,13 @@
     <title>Détail du créneau</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <%@ include file="includes/assignation-styles.jsp" %>
+    <script>
+        function toggleFrag(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'table-row' : 'none';
+        }
+    </script>
 </head>
 <body>
     <div class="app-layout">
@@ -58,6 +66,8 @@
                                     <th>Référence Client</th>
                                     <th>Hôtel</th>
                                     <th>Personnes</th>
+                                    <th>Assignés</th>
+                                    <th>Restants</th>
                                     <th>Véhicule proposé</th>
                                 </tr>
                             </thead>
@@ -93,6 +103,27 @@
                                     <td><%= r != null && r.getHotelNom() != null ? r.getHotelNom() : "—" %></td>
                                     <td><span class="badge-persons">👤 <%= r != null ? r.getNombrePersonnes() : 0 %></span></td>
                                     <td>
+                                        <%
+                                            // Sprint 7: Utiliser rp.passengersAssigned pour la proposition (pas encore persistée)
+                                            // Fallback sur la DB uniquement si la proposition n'a pas cette info
+                                            int assignedSum = rp.passengersAssigned;
+                                            if (assignedSum == 0 && r != null) {
+                                                try {
+                                                    java.sql.Connection _c = dao.DatabaseConnection.getConnection();
+                                                    java.sql.PreparedStatement _ps = _c.prepareStatement("SELECT SUM(passengers_assigned) as s FROM reservation_vehicule WHERE id_reservation = ?");
+                                                    _ps.setInt(1, r.getId());
+                                                    java.sql.ResultSet _rs = _ps.executeQuery();
+                                                    if (_rs.next()) assignedSum = _rs.getInt("s");
+                                                    _rs.close(); _ps.close();
+                                                } catch (Exception _e) { assignedSum = r.getAssignedCount(); }
+                                            }
+                                        %>
+                                        <%= assignedSum %>
+                                    </td>
+                                    <td>
+                                        <%= (r != null ? (r.getNombrePersonnes() - assignedSum) : 0) %>
+                                    </td>
+                                    <td>
                                         <% if (rp.proposedVehiculeId != null) {
                                             models.Vehicule v = null;
                                             try { v = vdao.findById(rp.proposedVehiculeId); } catch (SQLException _e) { v = null; }
@@ -105,6 +136,47 @@
                                         <% } else { %>
                                             <span style="color: #b91c1c; font-weight:700;">NON_ASSIGNÉ</span>
                                         <% } %>
+                                        
+                                    </td>
+                                </tr>
+
+                                <tr id="frag-<%= rp.reservationId %>" style="display:none;">
+                                    <td colspan="7">
+                                        <div style="padding:10px; background:#fbfbfb; border-radius:6px;">
+                                            <strong>Détails des affectations</strong>
+                                            <%
+                                                try {
+                                                    dao.ReservationVehiculeDAO rvdao = new dao.ReservationVehiculeDAO();
+                                                    java.util.List<models.ReservationVehicule> rvs = rvdao.findAllByReservationId(rp.reservationId);
+                                                    if (rvs == null || rvs.isEmpty()) {
+                                            %>
+                                                        <div style="margin-top:6px;">Aucune affectation persistée pour cette réservation.</div>
+                                            <%      } else { %>
+                                                        <table style="margin-top:8px; width:100%; border-collapse:collapse;">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Véhicule</th>
+                                                                    <th>Passagers assignés</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                            <% for (models.ReservationVehicule rv : rvs) {
+                                                                    models.Vehicule _vv = null;
+                                                                    try { _vv = new dao.VehiculeDAO().findById(rv.getIdVehicule()); } catch (SQLException _ee) { _vv = null; }
+                                                            %>
+                                                                <tr>
+                                                                    <td><%= _vv != null ? _vv.getMarque() + " (#" + _vv.getId() + ")" : ("Véhicule #" + rv.getIdVehicule()) %></td>
+                                                                    <td><%= rv.getPassengersAssigned() %></td>
+                                                                </tr>
+                                                            <% } %>
+                                                            </tbody>
+                                                        </table>
+                                            <%      }
+                                                } catch (Exception _ex) {
+                                            %>
+                                                    <div style="color:#b91c1c; margin-top:6px;">Erreur lors de la lecture des affectations.</div>
+                                            <%  } %>
+                                        </div>
                                     </td>
                                 </tr>
                                 <% } %>
@@ -148,16 +220,18 @@
                                 </div>
 
                                 <div class="vehicle-reservations">
-                                    <%-- show small chips for each reservation with client ref and persons --%>
+                                    <%-- show small chips for each reservation with client ref and passengers assigned to THIS vehicle --%>
                                     <% for (Integer rid : vs.reservationIds) {
                                             if (!groupResIds.contains(rid)) continue;
                                             models.Reservation rr = null;
                                             try { rr = new ReservationDAO().findById(rid); } catch (SQLException _e) { rr = null; }
+                                            // Sprint 7: utiliser passengersPerReservation pour afficher le nombre assigné à ce véhicule
+                                            int passengersInThisVehicle = vs.passengersPerReservation.getOrDefault(rid, 0);
                                     %>
                                         <div class="reservation-chip">
                                             <span style="opacity:.8;">#<%= rid %></span>
                                             <span style="color:var(--text-primary);"> <%= rr != null && rr.getRefClient() != null ? rr.getRefClient() : "—" %></span>
-                                            <span style="color:var(--text-secondary); font-weight:600;">• <%= rr != null ? rr.getNombrePersonnes() : 0 %> pers.</span>
+                                            <span style="color:var(--text-secondary); font-weight:600;">• <%= passengersInThisVehicle %> pers. assignées</span>
                                         </div>
                                     <% } %>
                                 </div>
