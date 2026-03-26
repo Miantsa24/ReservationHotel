@@ -1,3 +1,4 @@
+// Reservation.java
 package models;
 
 import java.sql.Date;
@@ -10,14 +11,12 @@ public class Reservation {
     private Time heureArrivee;
     private int nombrePersonnes;
     private String refClient;
-    
-    // Statut de la réservation: EN_ATTENTE | ASSIGNE | NON_ASSIGNE
     private String status = "EN_ATTENTE";
-
-    // Pour affichage : nom de l'hôtel
     private String hotelNom;
 
-    // Constructeurs
+    // Sprint 7 : suivi assignation
+    private int assignedCount = 0;
+
     public Reservation() {}
 
     public Reservation(int hotelId, Date dateArrivee, Time heureArrivee, 
@@ -28,9 +27,6 @@ public class Reservation {
         this.nombrePersonnes = nombrePersonnes;
         this.refClient = refClient;
     }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
 
     // Getters et Setters
     public int getId() { return id; }
@@ -53,4 +49,17 @@ public class Reservation {
 
     public String getHotelNom() { return hotelNom; }
     public void setHotelNom(String hotelNom) { this.hotelNom = hotelNom; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    // ===============================
+    // Sprint 7 : méthodes pour allocation
+    // ===============================
+    public int getAssignedCount() { return assignedCount; }
+    public void setAssignedCount(int assignedCount) { this.assignedCount = assignedCount; }
+
+    public int getRemaining() {
+        return this.nombrePersonnes - this.assignedCount;
+    }
 }

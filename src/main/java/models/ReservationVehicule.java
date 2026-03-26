@@ -1,3 +1,4 @@
+// ReservationVehicule.java
 package models;
 
 public class ReservationVehicule {
@@ -6,7 +7,9 @@ public class ReservationVehicule {
     private int idVehicule;
     private Integer vehiculeTrajetId; // Nullable FK to vehicule_trajet
 
-    // Constructeurs
+    // Sprint 7 : nombre de passagers assignés sur ce véhicule
+    private int passengersAssigned = 0;
+
     public ReservationVehicule() {}
 
     public ReservationVehicule(int idReservation, int idVehicule) {
@@ -14,10 +17,7 @@ public class ReservationVehicule {
         this.idVehicule = idVehicule;
     }
 
-    public Integer getVehiculeTrajetId() { return vehiculeTrajetId; }
-    public void setVehiculeTrajetId(Integer vehiculeTrajetId) { this.vehiculeTrajetId = vehiculeTrajetId; }
-
-    
+    // Getters et Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
@@ -26,4 +26,10 @@ public class ReservationVehicule {
 
     public int getIdVehicule() { return idVehicule; }
     public void setIdVehicule(int idVehicule) { this.idVehicule = idVehicule; }
+
+    public Integer getVehiculeTrajetId() { return vehiculeTrajetId; }
+    public void setVehiculeTrajetId(Integer vehiculeTrajetId) { this.vehiculeTrajetId = vehiculeTrajetId; }
+
+    public int getPassengersAssigned() { return passengersAssigned; }
+    public void setPassengersAssigned(int passengersAssigned) { this.passengersAssigned = passengersAssigned; }
 }

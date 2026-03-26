@@ -269,7 +269,7 @@ public class GroupingService {
                 // create reservation_vehicule rows
                 for (Reservation ar : assigned) {
                     ReservationVehicule rv = new ReservationVehicule(ar.getId(), vehiculeId);
-                    reservationVehiculeDAO.save(rv);
+                    reservationVehiculeDAO.insertReservationVehicule(rv);
                     reservationDAO.updateStatus(ar.getId(), "ASSIGNE");
                 }
 
@@ -486,6 +486,120 @@ public class GroupingService {
     }
 
     /**
+     * Résultat d'allocation en mémoire pour un groupe/date.
+     */
+    public static class AllocationResult {
+        public List<ReservationVehicule> assignments = new ArrayList<>();
+        public List<Reservation> remainingReservations = new ArrayList<>();
+        public Map<Integer, Integer> finalVehicleRemaining = new HashMap<>();
+    }
+
+    /**
+     * Core allocation algorithm (memory-only). Does NOT persist.
+     * Follows Sprint 7 rules: fragmentation allowed, score = remainingCap - reservation.remaining
+     */
+    public AllocationResult allocateForGroup(Date date, Time windowStart, List<Reservation> reservations, List<Vehicule> vehicules) throws SQLException {
+        AllocationResult result = new AllocationResult();
+
+        // Copy reservations into working list and ensure assignedCount is set
+        List<Reservation> workRes = new ArrayList<>();
+        for (Reservation r : reservations) {
+            // create shallow copy to avoid mutating caller objects
+            Reservation copy = new Reservation();
+            copy.setId(r.getId());
+            copy.setHotelId(r.getHotelId());
+            copy.setDateArrivee(r.getDateArrivee());
+            copy.setHeureArrivee(r.getHeureArrivee());
+            copy.setNombrePersonnes(r.getNombrePersonnes());
+            copy.setRefClient(r.getRefClient());
+            copy.setAssignedCount(r.getAssignedCount());
+            workRes.add(copy);
+        }
+
+        // Initialize remaining capacities using DB (sum of passengers_assigned)
+        Map<Integer, Integer> remainingCap = new HashMap<>();
+        for (Vehicule v : vehicules) {
+            int occupied = reservationVehiculeDAO.sumAssignedByVehicule(v.getId());
+            int free = v.getCapacite() - occupied;
+            remainingCap.put(v.getId(), Math.max(0, free));
+        }
+
+        // Sort reservations descending by nombrePersonnes as preparation step
+        workRes.sort((a,b) -> Integer.compare(b.getNombrePersonnes(), a.getNombrePersonnes()));
+
+        // For each vehicle, try to fill it progressively
+        for (Vehicule v : vehicules) {
+            int vid = v.getId();
+            int free = remainingCap.getOrDefault(vid, 0);
+            if (free <= 0) continue;
+
+            // While there is free capacity and there exist reservations with remaining>0
+            while (free > 0) {
+                // Build candidate list of reservations with remaining > 0
+                List<Reservation> candidates = new ArrayList<>();
+                for (Reservation r : workRes) {
+                    if (r.getRemaining() > 0) candidates.add(r);
+                }
+                if (candidates.isEmpty()) break;
+
+                // Choose best candidate per Sprint7: prefer negative score, then smallest abs(score), tie by date/time
+                Reservation best = null;
+                int bestScore = Integer.MAX_VALUE;
+                for (Reservation cand : candidates) {
+                    int score = free - cand.getRemaining();
+                    if (best == null) { best = cand; bestScore = score; continue; }
+                    boolean bestNeg = bestScore < 0;
+                    boolean curNeg = score < 0;
+                    if (curNeg && !bestNeg) {
+                        best = cand; bestScore = score; continue;
+                    }
+                    if (curNeg == bestNeg) {
+                        int absCur = Math.abs(score);
+                        int absBest = Math.abs(bestScore);
+                        if (absCur < absBest) { best = cand; bestScore = score; continue; }
+                        if (absCur == absBest) {
+                            // tie breaker by date then time then id
+                            int cmpDate = cand.getDateArrivee().compareTo(best.getDateArrivee());
+                            if (cmpDate < 0) { best = cand; bestScore = score; continue; }
+                            if (cmpDate == 0) {
+                                int cmpTime = cand.getHeureArrivee().compareTo(best.getHeureArrivee());
+                                if (cmpTime < 0) { best = cand; bestScore = score; continue; }
+                                if (cmpTime == 0 && cand.getId() < best.getId()) { best = cand; bestScore = score; continue; }
+                            }
+                        }
+                    }
+                }
+
+                if (best == null) break;
+
+                int need = best.getRemaining();
+                int assign = Math.min(free, need);
+
+                // create reservation_vehicule assignment in memory
+                ReservationVehicule rv = new ReservationVehicule(best.getId(), vid);
+                rv.setPassengersAssigned(assign);
+                result.assignments.add(rv);
+
+                // update in-memory counters
+                best.setAssignedCount(best.getAssignedCount() + assign);
+                free -= assign;
+            }
+
+            remainingCap.put(vid, free);
+        }
+
+        // After filling vehicles, collect remaining reservations
+        for (Reservation r : workRes) {
+            if (r.getRemaining() > 0) result.remainingReservations.add(r);
+        }
+
+        result.finalVehicleRemaining.putAll(remainingCap);
+        return result;
+    }
+
+    
+
+    /**
      * Persist a previously computed AssignmentProposal in a single DB transaction.
      * Writes `reservation_vehicule`, `vehicule_trajet` and updates `reservation_vehicule.vehicule_trajet_id`
      * and `vehicules.available_from`.
@@ -597,5 +711,169 @@ public class GroupingService {
 
             // connection closed by try-with-resources
         }
+
+
     }
+    
+    /**
+     * Persist an AllocationResult produced by `allocateForGroup` in a single DB transaction.
+     */
+    public void persistAllocationResult(Date date, AllocationResult alloc, Time windowStart) throws SQLException {
+        String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
+        String user = System.getProperty("db.user", "root");
+        String pass = System.getProperty("db.password", "root");
+
+        try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
+            boolean previousAuto = conn.getAutoCommit();
+            conn.setAutoCommit(false);
+
+            String insertRvSql = "INSERT INTO reservation_vehicule (id_reservation, id_vehicule, passengers_assigned) VALUES (?, ?, ?)";
+            String insertTrajetSql = "INSERT INTO vehicule_trajet (vehicule_id, date, heure_depart, heure_arrivee, liste_reservation, kilometrage_parcouru) VALUES (?, ?, ?, ?, ?, ?)";
+            String updateRvTrajetSql = "UPDATE reservation_vehicule SET vehicule_trajet_id = ? WHERE id = ?";
+            String updateVehiculeAvailable = "UPDATE vehicules SET available_from = ? WHERE id = ?";
+            String updateTrajetsEffectues = "UPDATE vehicules SET trajets_effectues = trajets_effectues + 1 WHERE id = ?";
+
+            try (java.sql.PreparedStatement insertRvStmt = conn.prepareStatement(insertRvSql, java.sql.Statement.RETURN_GENERATED_KEYS);
+                 java.sql.PreparedStatement insertTrajetStmt = conn.prepareStatement(insertTrajetSql, java.sql.Statement.RETURN_GENERATED_KEYS);
+                 java.sql.PreparedStatement updateRvTrajetStmt = conn.prepareStatement(updateRvTrajetSql);
+                 java.sql.PreparedStatement updateVehiculeStmt = conn.prepareStatement(updateVehiculeAvailable);
+                 java.sql.PreparedStatement updateTrajetsStmt = conn.prepareStatement(updateTrajetsEffectues);
+                 java.sql.PreparedStatement updateReservationAssignedStmt = conn.prepareStatement("UPDATE reservations SET assigned_count = assigned_count + ? WHERE id = ?");
+                 java.sql.PreparedStatement updateReservationStatusStmt = conn.prepareStatement("UPDATE reservations SET status = CASE WHEN assigned_count >= nombre_personnes THEN 'ASSIGNE' WHEN assigned_count > 0 THEN 'ASSIGNE_PARTIEL' ELSE 'EN_ATTENTE' END WHERE id = ?");) {
+
+                // 1) mark non-assigned reservations as NON_ASSIGNE
+                for (Reservation r : alloc.remainingReservations) {
+                    try (java.sql.PreparedStatement st = conn.prepareStatement("UPDATE reservations SET status = ? WHERE id = ?")) {
+                        st.setString(1, "NON_ASSIGNE");
+                        st.setInt(2, r.getId());
+                        st.executeUpdate();
+                    }
+                }
+
+                // 2) insert reservation_vehicule rows and collect created ids per vehicle
+                // Map vehicleId -> list of created reservation_vehicule ids
+                Map<Integer, List<Integer>> createdRvIdsByVeh = new HashMap<>();
+                // Track per-reservation total assigned in this batch
+                Map<Integer, Integer> assignedDeltaPerReservation = new HashMap<>();
+
+                for (ReservationVehicule rv : alloc.assignments) {
+                    insertRvStmt.setInt(1, rv.getIdReservation());
+                    insertRvStmt.setInt(2, rv.getIdVehicule());
+                    insertRvStmt.setInt(3, rv.getPassengersAssigned());
+                    insertRvStmt.executeUpdate();
+                    int createdId = 0;
+                    try (java.sql.ResultSet gk = insertRvStmt.getGeneratedKeys()) {
+                        if (gk.next()) createdId = gk.getInt(1);
+                    }
+                    createdRvIdsByVeh.computeIfAbsent(rv.getIdVehicule(), k -> new ArrayList<>()).add(createdId);
+                    assignedDeltaPerReservation.put(rv.getIdReservation(), assignedDeltaPerReservation.getOrDefault(rv.getIdReservation(), 0) + rv.getPassengersAssigned());
+                }
+
+                // 3) update reservations.assigned_count for each affected reservation
+                for (Map.Entry<Integer, Integer> e : assignedDeltaPerReservation.entrySet()) {
+                    int reservationId = e.getKey();
+                    int delta = e.getValue();
+                    updateReservationAssignedStmt.setInt(1, delta);
+                    updateReservationAssignedStmt.setInt(2, reservationId);
+                    updateReservationAssignedStmt.executeUpdate();
+
+                    // update status based on new assigned_count vs nombre_personnes
+                    updateReservationStatusStmt.setInt(1, reservationId);
+                    updateReservationStatusStmt.executeUpdate();
+                }
+
+                // 4) create vehicule_trajet per vehicle and update reservation_vehicule rows to reference it
+                for (Map.Entry<Integer, List<Integer>> e : createdRvIdsByVeh.entrySet()) {
+                    int vid = e.getKey();
+                    List<Integer> createdIds = e.getValue();
+                    if (createdIds.isEmpty()) continue;
+
+                    // Build JSON list of reservation ids for this vehicule_trajet
+                    // We need reservation ids, fetch them by querying reservation_vehicule entries
+                    StringBuilder sb = new StringBuilder();
+                    sb.append('[');
+                    // We will also build list of Reservation objects to estimate trajet metrics
+                    List<Reservation> assignedResas = new ArrayList<>();
+                    for (Integer createdRvId : createdIds) {
+                        // retrieve reservation id for this reservation_vehicule
+                        try (java.sql.PreparedStatement p = conn.prepareStatement("SELECT id_reservation FROM reservation_vehicule WHERE id = ?")) {
+                            p.setInt(1, createdRvId);
+                            try (java.sql.ResultSet rs = p.executeQuery()) {
+                                if (rs.next()) {
+                                    int rid = rs.getInt(1);
+                                    if (sb.length() > 1) sb.append(','); sb.append(rid);
+                                    Reservation res = reservationDAO.findById(rid);
+                                    if (res != null) assignedResas.add(res);
+                                }
+                            }
+                        }
+                    }
+                    sb.append(']');
+
+                    // insert trajet: use windowStart as heure_depart
+                    insertTrajetStmt.setInt(1, vid);
+                    insertTrajetStmt.setDate(2, date);
+                    // heure_depart
+                    java.sql.Timestamp departTs = null;
+                    if (windowStart != null) {
+                        java.time.LocalDate d = date.toLocalDate();
+                        java.time.LocalDateTime dt = java.time.LocalDateTime.of(d, windowStart.toLocalTime());
+                        departTs = java.sql.Timestamp.valueOf(dt);
+                    }
+                    insertTrajetStmt.setTimestamp(3, departTs);
+
+                    // heure_arrivee estimation
+                    java.sql.Timestamp arriveeTs = null;
+                    double km = 0.0;
+                    try {
+                        java.sql.Time heureRetour = tracabiliteService.calculerHeureRetour(vehiculeDAO.findById(vid), assignedResas);
+                        if (heureRetour != null) {
+                            java.time.LocalDate d = date.toLocalDate();
+                            java.time.LocalDateTime ldt = java.time.LocalDateTime.of(d, heureRetour.toLocalTime());
+                            arriveeTs = java.sql.Timestamp.valueOf(ldt);
+                        }
+                        km = tracabiliteService.calculerDistanceTotale(assignedResas);
+                    } catch (SQLException ex) {
+                        // ignore estimation failures
+                    }
+                    insertTrajetStmt.setTimestamp(4, arriveeTs);
+                    insertTrajetStmt.setString(5, sb.toString());
+                    insertTrajetStmt.setDouble(6, km);
+                    insertTrajetStmt.executeUpdate();
+                    int trajetId = 0;
+                    try (java.sql.ResultSet gk = insertTrajetStmt.getGeneratedKeys()) { if (gk.next()) trajetId = gk.getInt(1); }
+
+                    // update reservation_vehicule rows to reference trajet
+                    for (Integer createdRvId : createdIds) {
+                        updateRvTrajetStmt.setInt(1, trajetId);
+                        updateRvTrajetStmt.setInt(2, createdRvId);
+                        updateRvTrajetStmt.executeUpdate();
+                    }
+
+                    // update vehicule.available_from if arriveeTs present
+                    if (arriveeTs != null) {
+                        updateVehiculeStmt.setTimestamp(1, arriveeTs);
+                        updateVehiculeStmt.setInt(2, vid);
+                        updateVehiculeStmt.executeUpdate();
+                    }
+
+                    // increment trajets_effectues
+                    try {
+                        updateTrajetsStmt.setInt(1, vid);
+                        updateTrajetsStmt.executeUpdate();
+                    } catch (SQLException se) {
+                        System.err.println("Warning: failed to increment trajets_effectues for vehicule " + vid + ": " + se.getMessage());
+                    }
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(previousAuto);
+            }
+        }
+    }
+    
 }

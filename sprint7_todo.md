@@ -153,35 +153,84 @@ Ajouter :
 
 ---
 
+⚠️ IMPORTANT (RÈGLE GLOBALE)
+❌ NE PAS créer de nouveau service inutile
+✔ Utiliser les services existants :
+GroupingService
+AssignationService (gardé mais optionnel)
+VehiculeSelectionService
+✔ Ajouter uniquement la méthode métier centrale dans le service le plus logique (probablement GroupingService)
 ### 4. AllocationService (cœur métier)
 
-Créer :
-```java
+👉 Implémentation dans :
+
+✔ GroupingService (recommandé car déjà orchestration des groupes)
+
+Méthode à ajouter :
 allocateForGroup(
     Date date,
     Time windowStart,
     List<Reservation> reservations,
     List<Vehicule> vehicules
 )
-```
+🧠 PRINCIPES D’ARCHITECTURE
+❌ Aucun nouveau Service créé
+✔ Réutilisation des services existants uniquement
+✔ DAO utilisé uniquement pour :
+initialisation capacité
+persistance finale
+✔ logique métier 100% en mémoire pendant allocation
+🔥 ALGORITHME SPRINT 7 (VERSION PROPRE)
+1. Initialisation capacité (1 seule fois)
 
-#### Algorithme
-1. Trier réservations DESC (nombrePersonnes)
-2. Pour chaque véhicule :
-   - remplir progressivement
-   - Critère de sélection :
-        places_restantes - remaining_reservation
-        Priorité :
-          1. valeur la plus proche de 0
-          2. priorité aux valeurs négatives
-          3. égalité → ordre d’arrivée (date + heure)
-3. Gérer :
-   - assignation complète
-   - assignation partielle
-4. Passer au véhicule suivant
-5. Garder les restants non assignés
+Pour chaque véhicule :
 
----
+remainingCapacity = vehicule.capacite - occupied(DB)
+2. Préparation données
+Trier reservations :
+DESC nombrePersonnes
+3. Allocation (SIMULATION MÉMOIRE)
+
+Pour chaque véhicule :
+
+Tant que capacité disponible > 0 :
+
+Calcul du score :
+
+score = remainingCapacity - reservation.remaining
+🎯 Priorité sélection
+score le plus proche de 0
+score négatif prioritaire (overfill contrôlé)
+égalité :
+dateArrivee
+heureArrivee
+4. Assignation
+✔ complète
+remainingCapacity >= reservation.remaining
+✔ partielle (Sprint 7 obligatoire)
+remainingCapacity < reservation.remaining
+
+→ split :
+
+assignation partielle véhicule
+mise à jour reservation.remaining
+5. Mise à jour mémoire (PAS DB)
+remainingCapacity--
+assignedCount++
+tracking en liste locale
+6. Passage véhicule suivant
+continuer jusqu’à saturation
+puis véhicule suivant
+7. Résultat final
+
+Retour :
+
+- List<ReservationVehicule>
+- reservations restantes
+- état final des véhicules
+8. PERSISTENCE (après algo uniquement)
+insertReservationVehicule()
+updateAssignedCount()
 
 ### 5. Tests unitaires
 - cas exemple Sprint 7
