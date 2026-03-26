@@ -269,6 +269,7 @@ public class GroupingService {
                 // create reservation_vehicule rows
                 for (Reservation ar : assigned) {
                     ReservationVehicule rv = new ReservationVehicule(ar.getId(), vehiculeId);
+                    rv.setPassengersAssigned(ar.getNombrePersonnes()); // Sprint 7: définir le nombre de passagers assignés
                     reservationVehiculeDAO.insertReservationVehicule(rv);
                     reservationDAO.updateStatus(ar.getId(), "ASSIGNE");
                 }
@@ -906,7 +907,7 @@ public class GroupingService {
     public void persistAllocationResult(Date date, AllocationResult alloc, Time windowStart) throws SQLException {
         String url = System.getProperty("db.url", "jdbc:mysql://localhost:3306/hotel_db?serverTimezone=UTC");
         String user = System.getProperty("db.user", "root");
-        String pass = System.getProperty("db.password", "root");
+        String pass = System.getProperty("db.password", "");
 
         try (java.sql.Connection conn = DriverManager.getConnection(url, user, pass)) {
             boolean previousAuto = conn.getAutoCommit();

@@ -4,6 +4,7 @@
 <%@ page import="models.VehiculeTracabilite" %>
 <%@ page import="models.Reservation" %>
 <%@ page import="models.Vehicule" %>
+<%@ page import="dao.DatabaseConnection" %>
 
 <!DOCTYPE html>
 <html>
@@ -39,10 +40,12 @@
                     Integer countAssignees = (Integer) request.getAttribute("countAssignees");
                     Integer countNonAssignees = (Integer) request.getAttribute("countNonAssignees");
                     Integer countEnAttente = (Integer) request.getAttribute("countEnAttente");
+                    Integer countAssigneesPartiellement = (Integer) request.getAttribute("countAssigneesPartiellement");
 
                     if (countAssignees == null) countAssignees = 0;
                     if (countNonAssignees == null) countNonAssignees = 0;
                     if (countEnAttente == null) countEnAttente = 0;
+                    if (countAssigneesPartiellement == null) countAssigneesPartiellement = 0;
                     if (totalVehicules == null) totalVehicules = 0;
 
                     SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
@@ -54,6 +57,11 @@
                         <div class="dashboard-icon">✅</div>
                         <div class="dashboard-value"><%= countAssignees %></div>
                         <div class="dashboard-label">Réservations assignées</div>
+                    </div>
+                    <div class="dashboard-card partial">
+                        <div class="dashboard-icon">⚡</div>
+                        <div class="dashboard-value"><%= countAssigneesPartiellement %></div>
+                        <div class="dashboard-label">Assignées partiellement</div>
                     </div>
                     <div class="dashboard-card warning">
                         <div class="dashboard-icon">❌</div>
@@ -167,11 +175,24 @@
                                                 <th>Hôtel</th>
                                                 <th>Heure</th>
                                                 <th>Personnes</th>
+                                                <th>Assignés (trajet)</th>
+                                                <th>Assignés (total)</th>
+                                                <th>Restants</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-
-                                            <% for (Reservation r : tt.getReservations()) { %>
+                                            <% for (Reservation r : tt.getReservations()) {
+                                                    int paxAssignedOnTrajet = 0;
+                                                    try {
+                                                        java.sql.Connection _c = dao.DatabaseConnection.getConnection();
+                                                        java.sql.PreparedStatement _ps = _c.prepareStatement("SELECT passengers_assigned FROM reservation_vehicule WHERE id_reservation = ? AND vehicule_trajet_id = ?");
+                                                        _ps.setInt(1, r.getId());
+                                                        _ps.setInt(2, tt.getTrajet().getId());
+                                                        java.sql.ResultSet _rs2 = _ps.executeQuery();
+                                                        if (_rs2.next()) paxAssignedOnTrajet = _rs2.getInt(1);
+                                                        _rs2.close(); _ps.close(); _c.close();
+                                                    } catch (Exception _e) { paxAssignedOnTrajet = 0; }
+                                            %>
                                                 <tr>
                                                     <td>#<%= r.getId() %></td>
                                                     <td><%= r.getRefClient() %></td>
@@ -180,6 +201,9 @@
                                                         <%= r.getHeureArrivee() != null ? sdf.format(r.getHeureArrivee()) : "—" %>
                                                     </td>
                                                     <td><%= r.getNombrePersonnes() %></td>
+                                                    <td><%= paxAssignedOnTrajet %></td>
+                                                    <td><%= r.getAssignedCount() %></td>
+                                                    <td><%= r.getRemaining() %></td>
                                                 </tr>
                                             <% } %>
 

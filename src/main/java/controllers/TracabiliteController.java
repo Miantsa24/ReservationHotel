@@ -142,11 +142,13 @@ public class TracabiliteController {
             int countAssignees = reservationDAO.countByDateAndStatus(dateSql, "ASSIGNE");
             int countNonAssignees = reservationDAO.countByDateAndStatus(dateSql, "NON_ASSIGNE");
             int countEnAttente = reservationDAO.countByDateAndStatus(dateSql, "EN_ATTENTE");
-            int totalReservations = countAssignees + countNonAssignees + countEnAttente;
-            
+            int countAssigneesPartiellement = reservationDAO.countByDateAndStatus(dateSql, "ASSIGNE_PARTIEL");
+            int totalReservations = countAssignees + countNonAssignees + countEnAttente + countAssigneesPartiellement;
+
             mv.addItem("countAssignees", countAssignees);
             mv.addItem("countNonAssignees", countNonAssignees);
             mv.addItem("countEnAttente", countEnAttente);
+            mv.addItem("countAssigneesPartiellement", countAssigneesPartiellement);
             mv.addItem("totalReservations", totalReservations);
 
         } catch (Exception e) {

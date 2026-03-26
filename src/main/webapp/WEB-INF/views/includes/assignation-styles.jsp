@@ -67,6 +67,7 @@
     .dashboard-card { padding: 20px; border-radius: var(--border-radius-lg); text-align: center; transition: transform 0.2s, box-shadow 0.2s; }
     .dashboard-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
     .dashboard-card.success { background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.2) 100%); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .dashboard-card.partial { background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(168, 85, 247, 0.2) 100%); border: 1px solid rgba(168, 85, 247, 0.3); }
     .dashboard-card.warning { background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.2) 100%); border: 1px solid rgba(239, 68, 68, 0.3); }
     .dashboard-card.info { background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.2) 100%); border: 1px solid rgba(245, 158, 11, 0.3); }
     .dashboard-card.primary { background: linear-gradient(135deg, rgba(66, 153, 225, 0.1) 0%, rgba(66, 153, 225, 0.2) 100%); border: 1px solid rgba(66, 153, 225, 0.3); }
