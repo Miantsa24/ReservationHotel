@@ -27,12 +27,17 @@ public class AssignmentProposal {
     public static class GroupProposal {
         public List<ReservationProposal> reservations = new ArrayList<>();
         public Time departureTime;
+        // Sprint 7: AllocationResult stocké pour persistAllocationResult()
+        public transient Object allocationResult; // GroupingService.AllocationResult
     }
 
     public static class ReservationProposal {
         public int reservationId;
         public Integer proposedVehiculeId; // null if not assigned
         public String reason; // optional explanation
+        // Sprint 7: champs pour fragmentation
+        public int passengersAssigned = 0;
+        public String vehicleAssignments; // ex: "V1:6p, V2:2p"
     }
 
     public static class VehicleSummary {
@@ -41,5 +46,8 @@ public class AssignmentProposal {
         public double estimatedKilometrage = 0.0;
         public Timestamp heureDepart;
         public Timestamp heureArrivee;
+        // Sprint 7: champs pour fragmentation
+        public int totalPassengers = 0;
+        public Map<Integer, Integer> passengersPerReservation = new HashMap<>();
     }
 }
