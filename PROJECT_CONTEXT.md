@@ -149,3 +149,8 @@ Pour les reservations j'ai choisi Colbert, Ibis et Novotel
 
 Pour vehicule 1 le trajet sera : Aeroport - Colbert -Novotel -Aeroport (le plus proche) et ces distances sont tous dans la base pourtant le km estime est toujours N/A et l'heure d'arrivee est vide
 Et pour vehicule 2 : Aeroport - Ibis - Aeroport et cette distance aussi est dans la base et pourtant c'est vide et N/A
+
+
+
+
+

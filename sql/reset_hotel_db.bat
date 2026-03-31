@@ -1,7 +1,7 @@
 @echo off
 echo Resetting MySQL database 'hotel_db'...
 set MYSQL_USER=root
-set MYSQL_PASS=
+set MYSQL_PASS=root
 set MYSQL_PATH="C:\xampp\mysql\bin\mysql.exe"
 if not exist %MYSQL_PATH% (
     echo MySQL not found at %MYSQL_PATH%. Please install MySQL or update the path in this script.
