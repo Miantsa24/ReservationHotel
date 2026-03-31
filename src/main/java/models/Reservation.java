@@ -3,6 +3,7 @@ package models;
 
 import java.sql.Date;
 import java.sql.Time;
+import java.sql.Timestamp;
 
 public class Reservation {
     private int id;
@@ -16,6 +17,11 @@ public class Reservation {
 
     // Sprint 7 : suivi assignation
     private int assignedCount = 0;
+
+    // Sprint 8 : priorisation des non assignés
+    private int priorityOrder = 0;           // Ordre de priorité (0 = normal, >0 = prioritaire)
+    private Integer windowOriginId = null;   // ID de la fenêtre d'origine
+    private Timestamp firstWindowTime = null; // Timestamp de la première fenêtre
 
     public Reservation() {}
 
@@ -61,5 +67,33 @@ public class Reservation {
 
     public int getRemaining() {
         return this.nombrePersonnes - this.assignedCount;
+    }
+
+    // ===============================
+    // Sprint 8 : priorisation des non assignés
+    // ===============================
+    public int getPriorityOrder() { return priorityOrder; }
+    public void setPriorityOrder(int priorityOrder) { this.priorityOrder = priorityOrder; }
+
+    public Integer getWindowOriginId() { return windowOriginId; }
+    public void setWindowOriginId(Integer windowOriginId) { this.windowOriginId = windowOriginId; }
+
+    public Timestamp getFirstWindowTime() { return firstWindowTime; }
+    public void setFirstWindowTime(Timestamp firstWindowTime) { this.firstWindowTime = firstWindowTime; }
+
+    /**
+     * Sprint 8 : Vérifie si cette réservation a des passagers non assignés
+     * @return true si remaining > 0
+     */
+    public boolean hasUnassignedPassengers() {
+        return getRemaining() > 0;
+    }
+
+    /**
+     * Sprint 8 : Vérifie si cette réservation est prioritaire (non assigné d'une fenêtre précédente)
+     * @return true si priorityOrder > 0
+     */
+    public boolean isPriority() {
+        return priorityOrder > 0;
     }
 }
