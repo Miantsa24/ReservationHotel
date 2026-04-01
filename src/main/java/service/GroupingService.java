@@ -1064,5 +1064,547 @@ public class GroupingService {
             }
         }
     }
+
+    // ===============================
+    // SPRINT 8 : Priorisation des non assignés
+    // ===============================
+
+    /**
+     * Sprint 8 : Classe interne pour le résultat d'allocation avec priorité.
+     */
+    public static class AllocationResult {
+        public List<ReservationVehicule> assignments = new ArrayList<>();
+        public List<Reservation> remainingReservations = new ArrayList<>();
+        public int totalAssignedPassengers = 0;
+        public boolean vehicleFull = false;
+        public Time windowStart;
+        public Time windowEnd;
+
+        public int getTotalAssigned() {
+            int total = 0;
+            for (ReservationVehicule rv : assignments) {
+                total += rv.getPassengersAssigned();
+            }
+            return total;
+        }
+    }
+
+    /**
+     * Sprint 8 : Allocation avec priorité aux non assignés.
+     * Surcharge simple avec un seul véhicule.
+     */
+    public AllocationResult allocateForGroupSprint8(
+            Date date,
+            Time windowStart,
+            List<Reservation> unassignedPriority,
+            List<Reservation> newReservations,
+            Vehicule vehicule) {
+        return allocateForGroupSprint8(date, windowStart, unassignedPriority, newReservations, List.of(vehicule));
+    }
+
+    /**
+     * Sprint 8 : Allocation avec priorité aux non assignés.
+     * 
+     * @param date                La date d'opération
+     * @param windowStart         Heure de début de la fenêtre (retour véhicule)
+     * @param unassignedPriority  Passagers non assignés des fenêtres précédentes (PRIORITÉ ABSOLUE)
+     * @param newReservations     Nouvelles réservations dans la fenêtre actuelle
+     * @param vehicules           Liste des véhicules disponibles
+     * @return AllocationResult avec les assignations et les restants
+     */
+    public AllocationResult allocateForGroupSprint8(
+            Date date,
+            Time windowStart,
+            List<Reservation> unassignedPriority,
+            List<Reservation> newReservations,
+            List<Vehicule> vehicules) {
+
+        AllocationResult result = new AllocationResult();
+        result.windowStart = windowStart;
+
+        if (vehicules == null || vehicules.isEmpty()) {
+            // Pas de véhicule → tout reste non assigné
+            result.remainingReservations.addAll(copyReservations(unassignedPriority));
+            result.remainingReservations.addAll(copyReservations(newReservations));
+            return result;
+        }
+
+        // Trier les prioritaires par first_window_time (FIFO)
+        List<Reservation> sortedPriority = new ArrayList<>(unassignedPriority != null ? unassignedPriority : List.of());
+        sortedPriority.sort((a, b) -> {
+            if (a.getFirstWindowTime() == null && b.getFirstWindowTime() == null) return 0;
+            if (a.getFirstWindowTime() == null) return 1;
+            if (b.getFirstWindowTime() == null) return -1;
+            return a.getFirstWindowTime().compareTo(b.getFirstWindowTime());
+        });
+
+        // Trier les nouvelles par nombre de passagers DESC (Sprint 7)
+        List<Reservation> sortedNew = new ArrayList<>(newReservations != null ? newReservations : List.of());
+        sortedNew.sort((a, b) -> Integer.compare(b.getRemaining(), a.getRemaining()));
+
+        // Pour chaque véhicule
+        for (Vehicule v : vehicules) {
+            int remainingCapacity = v.getCapacite();
+
+            // 1. PRIORITÉ ABSOLUE : non assignés d'abord
+            List<Reservation> toRemoveFromPriority = new ArrayList<>();
+            for (Reservation r : sortedPriority) {
+                if (remainingCapacity <= 0) break;
+                
+                int toAssign = Math.min(r.getRemaining(), remainingCapacity);
+                if (toAssign > 0) {
+                    ReservationVehicule rv = new ReservationVehicule();
+                    rv.setIdReservation(r.getId());
+                    rv.setIdVehicule(v.getId());
+                    rv.setPassengersAssigned(toAssign);
+                    rv.setReservation(r);
+                    result.assignments.add(rv);
+                    result.totalAssignedPassengers += toAssign;
+
+                    remainingCapacity -= toAssign;
+                    r.setAssignedCount(r.getAssignedCount() + toAssign);
+
+                    if (r.getRemaining() <= 0) {
+                        toRemoveFromPriority.add(r);
+                    }
+                }
+            }
+            sortedPriority.removeAll(toRemoveFromPriority);
+
+            // 2. Ensuite : nouvelles réservations avec scoring Sprint 7
+            List<Reservation> toRemoveFromNew = new ArrayList<>();
+            while (remainingCapacity > 0 && !sortedNew.isEmpty()) {
+                Reservation best = selectBestCandidate(sortedNew, remainingCapacity);
+                if (best == null) break;
+
+                int toAssign = Math.min(best.getRemaining(), remainingCapacity);
+                if (toAssign > 0) {
+                    ReservationVehicule rv = new ReservationVehicule();
+                    rv.setIdReservation(best.getId());
+                    rv.setIdVehicule(v.getId());
+                    rv.setPassengersAssigned(toAssign);
+                    rv.setReservation(best);
+                    result.assignments.add(rv);
+                    result.totalAssignedPassengers += toAssign;
+
+                    remainingCapacity -= toAssign;
+                    best.setAssignedCount(best.getAssignedCount() + toAssign);
+
+                    if (best.getRemaining() <= 0) {
+                        toRemoveFromNew.add(best);
+                    }
+                }
+                sortedNew.remove(best);
+            }
+
+            // Vérifier si véhicule plein
+            if (remainingCapacity <= 0) {
+                result.vehicleFull = true;
+            }
+        }
+
+        // Ajouter les restants (pour prochaine fenêtre)
+        for (Reservation r : sortedPriority) {
+            if (r.getRemaining() > 0) {
+                result.remainingReservations.add(r);
+            }
+        }
+        for (Reservation r : sortedNew) {
+            if (r.getRemaining() > 0) {
+                result.remainingReservations.add(r);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Sélectionne le meilleur candidat selon le scoring Sprint 7.
+     * Score = remainingCapacity - passagers → préférer les scores négatifs ou proches de 0
+     */
+    private Reservation selectBestCandidate(List<Reservation> candidates, int remainingCapacity) {
+        if (candidates == null || candidates.isEmpty()) return null;
+
+        Reservation best = null;
+        int bestScore = Integer.MAX_VALUE;
+
+        for (Reservation r : candidates) {
+            if (r.getRemaining() <= 0) continue;
+            
+            int score = remainingCapacity - r.getRemaining();
+            // Préférer les scores négatifs (surcharge) ou proches de 0 (remplissage optimal)
+            // Mais ne pas prendre si score trop négatif (impossible à caser)
+            
+            if (score >= 0) {
+                // Peut être casé entièrement
+                if (score < bestScore || (score == bestScore && betterTieBreaker(r, best))) {
+                    bestScore = score;
+                    best = r;
+                }
+            } else if (best == null) {
+                // Prendre le premier si aucun ne peut être casé entièrement
+                best = r;
+                bestScore = score;
+            }
+        }
+
+        return best;
+    }
+
+    /**
+     * Sprint 8 : Tie-breaker pour sélection - préfère dateArrivee, heureArrivee, puis id
+     */
+    private boolean betterTieBreaker(Reservation a, Reservation b) {
+        if (b == null) return true;
+        
+        // Par date d'arrivée
+        if (a.getDateArrivee() != null && b.getDateArrivee() != null) {
+            int cmp = a.getDateArrivee().compareTo(b.getDateArrivee());
+            if (cmp != 0) return cmp < 0;
+        }
+        
+        // Par heure d'arrivée
+        if (a.getHeureArrivee() != null && b.getHeureArrivee() != null) {
+            int cmp = a.getHeureArrivee().compareTo(b.getHeureArrivee());
+            if (cmp != 0) return cmp < 0;
+        }
+        
+        // Par ID
+        return a.getId() < b.getId();
+    }
+
+    /**
+     * Sprint 8 : Copie une liste de réservations (pour éviter les modifications en place)
+     */
+    private List<Reservation> copyReservations(List<Reservation> original) {
+        if (original == null) return new ArrayList<>();
+        List<Reservation> copy = new ArrayList<>();
+        for (Reservation r : original) {
+            Reservation rc = new Reservation();
+            rc.setId(r.getId());
+            rc.setNomClient(r.getNomClient());
+            rc.setNombrePassager(r.getNombrePassager());
+            rc.setAssignedCount(r.getAssignedCount());
+            rc.setDateArrivee(r.getDateArrivee());
+            rc.setHeureArrivee(r.getHeureArrivee());
+            rc.setPriorityOrder(r.getPriorityOrder());
+            rc.setWindowOriginId(r.getWindowOriginId());
+            rc.setFirstWindowTime(r.getFirstWindowTime());
+            copy.add(rc);
+        }
+        return copy;
+    }
+
+    /**
+     * Sprint 8 : MÉTHODE CENTRALE - Traiter le retour d'un véhicule à l'aéroport.
+     * 
+     * @param vehiculeId  ID du véhicule qui revient
+     * @param date        Date de l'opération
+     * @param returnTime  Heure de retour à l'aéroport
+     * @return AllocationResult avec les assignations effectuées
+     */
+    public AllocationResult traiterRetourVehicule(int vehiculeId, Date date, Time returnTime) throws SQLException {
+        // 1. Récupérer le véhicule
+        Vehicule v = vehiculeDAO.findById(vehiculeId);
+        if (v == null) {
+            throw new IllegalArgumentException("Véhicule non trouvé: " + vehiculeId);
+        }
+
+        // 2. Vérifier disponibilité (optionnel - pour simulation on peut ignorer)
+        // if (v.getAvailableFrom() != null && v.getAvailableFrom().after(returnTime)) {
+        //     return null; // pas encore disponible
+        // }
+
+        // 3. Récupérer les non assignés (PRIORITÉ)
+        List<Reservation> unassigned = reservationDAO.findUnassignedPassengers(date);
+
+        // 4. Définir la nouvelle fenêtre
+        Time windowStart = returnTime;
+        Time windowEnd = addMinutes(returnTime, v.getTempsAttente());
+
+        // 5. Récupérer les nouvelles réservations dans cette fenêtre
+        List<Reservation> newReservations = reservationDAO.findInWindow(date, windowStart, windowEnd);
+
+        // 6. Lancer l'allocation avec priorité
+        AllocationResult result = allocateForGroupSprint8(date, windowStart, unassigned, newReservations, v);
+        result.windowEnd = windowEnd;
+
+        // 7. Marquer les restants comme prioritaires pour la prochaine fenêtre
+        for (Reservation r : result.remainingReservations) {
+            reservationDAO.markAsPriority(r.getId(), date, windowStart);
+        }
+
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Traiter le retour d'un véhicule ET persister les résultats.
+     */
+    public AllocationResult traiterRetourVehiculeEtPersister(int vehiculeId, Date date, Time returnTime, boolean autoPersist) throws SQLException {
+        AllocationResult result = traiterRetourVehicule(vehiculeId, date, returnTime);
+        
+        if (result != null && autoPersist && !result.assignments.isEmpty()) {
+            persistAllocationResult(date, result, result.windowStart);
+        }
+        
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Vérifie si le véhicule est plein après allocation.
+     */
+    public boolean isVehicleFull(Vehicule v, AllocationResult result) {
+        if (v == null || result == null) return false;
+        return result.getTotalAssigned() >= v.getCapacite();
+    }
+
+    /**
+     * Sprint 8 : Vérifie et déclenche le départ du véhicule.
+     * Si le véhicule est plein → départ immédiat
+     * Sinon → attendre fin de fenêtre
+     */
+    public DepartureDecision checkAndTriggerDeparture(Vehicule v, AllocationResult result) {
+        DepartureDecision decision = new DepartureDecision();
+        decision.vehiculeId = v.getId();
+        decision.vehiculeName = v.getNom();
+        decision.totalPassengers = result.getTotalAssigned();
+        decision.capacity = v.getCapacite();
+
+        if (isVehicleFull(v, result)) {
+            // Véhicule plein → départ immédiat
+            decision.immediateDepart = true;
+            decision.departureTime = new Time(System.currentTimeMillis());
+            decision.reason = "Véhicule plein - départ immédiat";
+        } else {
+            // Attendre fin de fenêtre
+            decision.immediateDepart = false;
+            decision.departureTime = result.windowEnd;
+            decision.reason = "Véhicule non plein - attendre fin de fenêtre à " + result.windowEnd;
+        }
+
+        return decision;
+    }
+
+    /**
+     * Sprint 8 : Classe pour la décision de départ.
+     */
+    public static class DepartureDecision {
+        public int vehiculeId;
+        public String vehiculeName;
+        public int totalPassengers;
+        public int capacity;
+        public boolean immediateDepart;
+        public Time departureTime;
+        public String reason;
+        
+        public int getRemainingCapacity() {
+            return capacity - totalPassengers;
+        }
+        
+        public boolean isFull() {
+            return totalPassengers >= capacity;
+        }
+    }
+
+    /**
+     * Sprint 8 : Déclenche le départ du véhicule et met à jour available_from.
+     * 
+     * @param v            Le véhicule
+     * @param result       Le résultat d'allocation
+     * @param departureTime L'heure de départ effective
+     * @return L'heure estimée de retour du véhicule
+     */
+    public Time triggerDeparture(Vehicule v, AllocationResult result, Time departureTime) throws SQLException {
+        // Calculer l'heure de retour estimée basée sur le trajet
+        int estimatedTripMinutes = calculateTripDuration(v, result);
+        
+        Time returnTime = addMinutes(departureTime, estimatedTripMinutes);
+        
+        // Mettre à jour available_from du véhicule
+        vehiculeDAO.markAsInTransit(v.getId(), returnTime);
+        
+        return returnTime;
+    }
+
+    /**
+     * Sprint 8 : Calcule la durée estimée du trajet en minutes.
+     * Basé sur le kilométrage et la vitesse moyenne du véhicule.
+     */
+    public int calculateTripDuration(Vehicule v, AllocationResult result) {
+        // Durée par défaut si pas assez d'info
+        int defaultDuration = 30;
+        
+        if (v == null || v.getVitesseMoyenne() == null || 
+            v.getVitesseMoyenne().compareTo(java.math.BigDecimal.ZERO) == 0) {
+            return defaultDuration;
+        }
+
+        // Récupérer les réservations assignées pour calculer la distance
+        List<Reservation> assignedReservations = new ArrayList<>();
+        for (ReservationVehicule rv : result.assignments) {
+            if (rv.getReservation() != null) {
+                assignedReservations.add(rv.getReservation());
+            }
+        }
+
+        if (assignedReservations.isEmpty()) {
+            return defaultDuration;
+        }
+
+        try {
+            // Calculer la distance totale via TracabiliteService
+            double distanceKm = tracabiliteService.calculerDistanceTotale(assignedReservations);
+            
+            if (distanceKm <= 0) {
+                return defaultDuration;
+            }
+
+            // Temps = distance / vitesse (en heures) * 60 (en minutes)
+            double vitesseKmH = v.getVitesseMoyenne().doubleValue();
+            double tempsHeures = distanceKm / vitesseKmH;
+            int tempsMinutes = (int) Math.ceil(tempsHeures * 60);
+            
+            // Ajouter un buffer de 10 minutes pour les arrêts
+            tempsMinutes += 10;
+            
+            // Minimum 15 minutes, maximum 120 minutes
+            return Math.max(15, Math.min(120, tempsMinutes));
+            
+        } catch (SQLException e) {
+            System.err.println("Erreur calcul distance: " + e.getMessage());
+            return defaultDuration;
+        }
+    }
+
+    /**
+     * Sprint 8 : Met à jour available_from après le départ d'un véhicule.
+     * C'est la méthode principale à appeler après un départ.
+     */
+    public void updateAvailableFrom(Vehicule v, VehiculeTrajet trajet) throws SQLException {
+        Time returnTime = calculateReturnTime(trajet);
+        v.setAvailableFrom(java.sql.Timestamp.valueOf(
+            trajet.getDate().toLocalDate().atTime(returnTime.toLocalTime())
+        ));
+        vehiculeDAO.updateAvailableFrom(v.getId(), returnTime);
+        
+        // SPRINT 8 : Le traitement du retour sera déclenché automatiquement
+        // quand le véhicule arrivera (via traiterRetourVehicule)
+        // Ou peut être schedulé pour exécution différée
+    }
+
+    /**
+     * Sprint 8 : Calcule l'heure de retour estimée basée sur un trajet.
+     */
+    public Time calculateReturnTime(VehiculeTrajet trajet) {
+        if (trajet == null || trajet.getHeureDepart() == null) {
+            return null;
+        }
+
+        // Si l'heure d'arrivée est déjà définie, l'utiliser
+        if (trajet.getHeureArrivee() != null) {
+            return new Time(trajet.getHeureArrivee().getTime());
+        }
+
+        // Sinon, estimer basé sur le kilométrage
+        try {
+            Vehicule v = vehiculeDAO.findById(trajet.getVehiculeId());
+            if (v != null && v.getVitesseMoyenne() != null && 
+                v.getVitesseMoyenne().compareTo(java.math.BigDecimal.ZERO) > 0) {
+                
+                double distanceKm = trajet.getKilometrageParcouru();
+                double vitesseKmH = v.getVitesseMoyenne().doubleValue();
+                double tempsHeures = distanceKm / vitesseKmH;
+                int tempsMinutes = (int) Math.ceil(tempsHeures * 60);
+                
+                // Ajouter buffer pour arrêts
+                tempsMinutes += 10;
+                
+                return addMinutes(new Time(trajet.getHeureDepart().getTime()), tempsMinutes);
+            }
+        } catch (SQLException e) {
+            System.err.println("Erreur calcul temps retour: " + e.getMessage());
+        }
+
+        // Par défaut, 30 minutes après le départ
+        return addMinutes(new Time(trajet.getHeureDepart().getTime()), 30);
+    }
+
+    /**
+     * Sprint 8 : Callback appelé quand un véhicule revient à l'aéroport.
+     * Déclenche automatiquement le traitement des non assignés.
+     */
+    public AllocationResult onVehiculeReturn(int vehiculeId, Date date, Time returnTime) throws SQLException {
+        return traiterRetourVehicule(vehiculeId, date, returnTime);
+    }
+
+    /**
+     * Sprint 8 : Gère le flux complet de départ d'un véhicule.
+     * 1. Vérifie si plein → départ immédiat ou attendre
+     * 2. Crée le trajet
+     * 3. Met à jour available_from
+     * 4. Retourne la décision de départ
+     */
+    public DepartureResult handleVehicleDeparture(Vehicule v, AllocationResult allocationResult, Date date) throws SQLException {
+        DepartureResult result = new DepartureResult();
+        result.vehicule = v;
+        result.allocationResult = allocationResult;
+        
+        // 1. Décider du type de départ
+        DepartureDecision decision = checkAndTriggerDeparture(v, allocationResult);
+        result.decision = decision;
+        
+        // 2. Définir l'heure de départ effective
+        Time departureTime;
+        if (decision.immediateDepart) {
+            departureTime = new Time(System.currentTimeMillis());
+            result.departureType = "IMMEDIATE";
+        } else {
+            departureTime = allocationResult.windowEnd;
+            result.departureType = "SCHEDULED";
+        }
+        result.departureTime = departureTime;
+        
+        // 3. Calculer l'heure de retour estimée
+        Time estimatedReturnTime = triggerDeparture(v, allocationResult, departureTime);
+        result.estimatedReturnTime = estimatedReturnTime;
+        
+        // 4. Le trajet sera créé par persistAllocationResult
+        
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Classe pour encapsuler le résultat complet d'un départ.
+     */
+    public static class DepartureResult {
+        public Vehicule vehicule;
+        public AllocationResult allocationResult;
+        public DepartureDecision decision;
+        public String departureType; // "IMMEDIATE" ou "SCHEDULED"
+        public Time departureTime;
+        public Time estimatedReturnTime;
+        public VehiculeTrajet trajet;
+        
+        public boolean isImmediateDeparture() {
+            return "IMMEDIATE".equals(departureType);
+        }
+    }
+
+    /**
+     * Sprint 8 : Planifie le départ à la fin de la fenêtre.
+     * (Pour l'instant, retourne simplement l'heure de départ planifiée)
+     */
+    public Time scheduleDepartureAtWindowEnd(Vehicule v, AllocationResult result) {
+        return result.windowEnd;
+    }
+
+    /**
+     * Sprint 8 : Utilitaire pour ajouter des minutes à une heure.
+     */
+    public static Time addMinutes(Time time, int minutes) {
+        if (time == null) return null;
+        long ms = time.getTime() + (minutes * 60 * 1000L);
+        return new Time(ms);
+    }
     
 }

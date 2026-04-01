@@ -321,6 +321,188 @@ public class AssignationController {
         try { return tokenDAO.isValidToken(token); } catch (Exception e) { return false; }
     }
 
+    // ===============================
+    // Sprint 8 : Endpoints pour traitement retour véhicule
+    // ===============================
+    // ✅ Endpoints implémentés:
+    // - POST /assignations/traiter-retour (simuler sans persister)
+    // - POST /assignations/traiter-retour-persist (simuler et persister)
+    // - GET /assignations/non-assignes (voir les passagers en attente)
+    // - GET /assignations/simuler-retour (formulaire de simulation)
+
+    /**
+     * Sprint 8 : Endpoint pour traiter le retour d'un véhicule.
+     * Relance l'allocation avec priorité pour les non assignés.
+     */
+    @PostMapping("/assignations/traiter-retour")
+    public ModelView traiterRetourVehicule(
+            @RequestParam("vehiculeId") int vehiculeId,
+            @RequestParam("date") String dateStr,
+            @RequestParam("returnTime") String returnTimeStr) {
+        
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/sprint8-retour-vehicule-result.jsp");
+        try {
+            java.sql.Date date = java.sql.Date.valueOf(dateStr);
+            java.sql.Time returnTime = java.sql.Time.valueOf(returnTimeStr);
+            
+            // Appeler traiterRetourVehicule du GroupingService
+            GroupingService.AllocationResult result = groupingService.traiterRetourVehicule(vehiculeId, date, returnTime);
+            
+            if (result == null) {
+                mv.addItem("warning", "Le véhicule n'est pas encore disponible.");
+                mv.addItem("vehiculeId", vehiculeId);
+                return mv;
+            }
+            
+            // Récupérer le véhicule pour affichage
+            models.Vehicule vehicule = vehiculeDAO.findById(vehiculeId);
+            
+            // Vérifier si le véhicule est plein (départ immédiat)
+            boolean vehicleFull = groupingService.isVehicleFull(vehicule, result);
+            
+            mv.addItem("vehicule", vehicule);
+            mv.addItem("result", result);
+            mv.addItem("vehicleFull", vehicleFull);
+            mv.addItem("date", dateStr);
+            mv.addItem("returnTime", returnTimeStr);
+            mv.addItem("totalAssigned", result.assignments.size());
+            mv.addItem("totalRemaining", result.remainingReservations.size());
+            
+            if (vehicleFull) {
+                mv.addItem("message", "Véhicule plein ! Départ immédiat recommandé.");
+            } else {
+                mv.addItem("message", "Véhicule partiellement rempli. Attendre fin de fenêtre.");
+            }
+            
+        } catch (IllegalArgumentException e) {
+            mv.addItem("error", "Véhicule non trouvé: " + e.getMessage());
+        } catch (SQLException e) {
+            mv.addItem("error", "Erreur base de données: " + e.getMessage());
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    /**
+     * Sprint 8 : Endpoint pour traiter ET persister le retour d'un véhicule.
+     */
+    @PostMapping("/assignations/traiter-retour-persist")
+    public ModelView traiterRetourVehiculeEtPersister(
+            @RequestParam("vehiculeId") int vehiculeId,
+            @RequestParam("date") String dateStr,
+            @RequestParam("returnTime") String returnTimeStr) {
+        
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/sprint8-retour-vehicule-result.jsp");
+        try {
+            java.sql.Date date = java.sql.Date.valueOf(dateStr);
+            java.sql.Time returnTime = java.sql.Time.valueOf(returnTimeStr);
+            
+            // Appeler traiterRetourVehiculeEtPersister avec auto-persist
+            GroupingService.AllocationResult result = groupingService.traiterRetourVehiculeEtPersister(
+                vehiculeId, date, returnTime, true
+            );
+            
+            if (result == null) {
+                mv.addItem("warning", "Le véhicule n'est pas encore disponible.");
+                mv.addItem("vehiculeId", vehiculeId);
+                return mv;
+            }
+            
+            models.Vehicule vehicule = vehiculeDAO.findById(vehiculeId);
+            boolean vehicleFull = groupingService.isVehicleFull(vehicule, result);
+            
+            mv.addItem("vehicule", vehicule);
+            mv.addItem("result", result);
+            mv.addItem("vehicleFull", vehicleFull);
+            mv.addItem("date", dateStr);
+            mv.addItem("returnTime", returnTimeStr);
+            mv.addItem("persisted", true);
+            mv.addItem("message", "Assignations persistées avec succès !");
+            
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    /**
+     * Sprint 8 : Page pour afficher les passagers non assignés.
+     */
+    @GetMapping("/assignations/non-assignes")
+    public ModelView listNonAssignes(@RequestParam(value = "date", required = false) String dateStr) {
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/sprint8-non-assignes.jsp");
+        try {
+            java.sql.Date date;
+            if (dateStr != null && !dateStr.isEmpty()) {
+                date = java.sql.Date.valueOf(dateStr);
+            } else {
+                // Aujourd'hui par défaut
+                date = new java.sql.Date(System.currentTimeMillis());
+            }
+            
+            // Récupérer les réservations non assignées (remaining > 0)
+            List<Reservation> unassigned = reservationDAO.findUnassignedPassengers(date);
+            
+            // Calculer le total de passagers en attente
+            int totalPassengersWaiting = 0;
+            for (Reservation r : unassigned) {
+                totalPassengersWaiting += r.getRemaining();
+            }
+            
+            mv.addItem("date", date.toString());
+            mv.addItem("unassigned", unassigned);
+            mv.addItem("totalReservations", unassigned.size());
+            mv.addItem("totalPassengersWaiting", totalPassengersWaiting);
+            
+            // Récupérer les véhicules disponibles pour action rapide
+            List<models.Vehicule> availableVehicules = vehiculeDAO.findAvailableNow();
+            mv.addItem("availableVehicules", availableVehicules);
+            
+        } catch (SQLException e) {
+            mv.addItem("error", "Erreur base de données: " + e.getMessage());
+        } catch (Exception e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
+        }
+        return mv;
+    }
+
+    /**
+     * Sprint 8 : Formulaire pour simuler un retour de véhicule.
+     */
+    @GetMapping("/assignations/simuler-retour")
+    public ModelView formulaireSimulerRetour() {
+        String token = ConfigReader.getCurrentToken();
+        if (!isTokenValid(token)) return createErrorView(token);
+
+        ModelView mv = new ModelView("/WEB-INF/views/sprint8-simuler-retour.jsp");
+        try {
+            // Liste des véhicules pour le formulaire
+            List<models.Vehicule> vehicules = vehiculeDAO.findAll();
+            mv.addItem("vehicules", vehicules);
+            
+            // Date du jour par défaut
+            mv.addItem("defaultDate", new java.sql.Date(System.currentTimeMillis()).toString());
+            
+            // Heure actuelle par défaut
+            java.time.LocalTime now = java.time.LocalTime.now();
+            mv.addItem("defaultTime", now.toString().substring(0, 5) + ":00");
+            
+        } catch (SQLException e) {
+            mv.addItem("error", "Erreur: " + e.getMessage());
+        }
+        return mv;
+    }
+
     private ModelView createErrorView(String token) {
         ModelView mv = new ModelView("/WEB-INF/views/auth-error.jsp");
         if (token == null || token.trim().isEmpty()) {

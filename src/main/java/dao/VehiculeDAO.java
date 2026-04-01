@@ -150,4 +150,154 @@ public class VehiculeDAO {
             stmt.executeUpdate();
         }
     }
+
+    // ===============================
+    // SPRINT 8 : Méthodes pour gestion retour véhicule
+    // ===============================
+
+    /**
+     * Sprint 8 : Récupère les véhicules disponibles maintenant.
+     */
+    public List<Vehicule> findAvailableNow() throws SQLException {
+        List<Vehicule> vehicules = new ArrayList<>();
+        String sql = "SELECT * FROM vehicules WHERE available_from IS NULL OR available_from <= NOW() ORDER BY capacite DESC";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                vehicules.add(mapResultSet(rs));
+            }
+        }
+        return vehicules;
+    }
+
+    /**
+     * Sprint 8 : Récupère les véhicules disponibles à partir d'une heure donnée.
+     */
+    public List<Vehicule> findAvailableFrom(java.sql.Date date, java.sql.Time time) throws SQLException {
+        List<Vehicule> vehicules = new ArrayList<>();
+        java.sql.Timestamp ts = java.sql.Timestamp.valueOf(date.toLocalDate().atTime(time.toLocalTime()));
+        String sql = "SELECT * FROM vehicules WHERE available_from IS NULL OR available_from <= ? ORDER BY capacite DESC";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, ts);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    vehicules.add(mapResultSet(rs));
+                }
+            }
+        }
+        return vehicules;
+    }
+
+    /**
+     * Sprint 8 : Récupère le prochain véhicule qui sera disponible après une heure donnée.
+     */
+    public Vehicule findNextAvailable(java.sql.Date date, java.sql.Time afterTime) throws SQLException {
+        java.sql.Timestamp ts = java.sql.Timestamp.valueOf(date.toLocalDate().atTime(afterTime.toLocalTime()));
+        String sql = "SELECT * FROM vehicules WHERE available_from > ? ORDER BY available_from ASC LIMIT 1";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, ts);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSet(rs);
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Sprint 8 : Marque un véhicule comme en transit (non disponible jusqu'à returnTime).
+     */
+    public void markAsInTransit(int vehiculeId, java.sql.Time returnTime) throws SQLException {
+        // Convertir Time en Timestamp pour aujourd'hui
+        java.sql.Timestamp returnTs = java.sql.Timestamp.valueOf(
+            java.time.LocalDate.now().atTime(returnTime.toLocalTime())
+        );
+        
+        String sql = "UPDATE vehicules SET available_from = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, returnTs);
+            stmt.setInt(2, vehiculeId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Sprint 8 : Marque un véhicule comme en transit avec une date spécifique.
+     */
+    public void markAsInTransit(int vehiculeId, java.sql.Date date, java.sql.Time returnTime) throws SQLException {
+        java.sql.Timestamp returnTs = java.sql.Timestamp.valueOf(
+            date.toLocalDate().atTime(returnTime.toLocalTime())
+        );
+        
+        String sql = "UPDATE vehicules SET available_from = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, returnTs);
+            stmt.setInt(2, vehiculeId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Sprint 8 : Marque un véhicule comme disponible immédiatement.
+     */
+    public void markAsAvailable(int vehiculeId) throws SQLException {
+        String sql = "UPDATE vehicules SET available_from = NULL WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, vehiculeId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Sprint 8 : Récupère les véhicules qui vont revenir dans une fenêtre donnée.
+     */
+    public List<Vehicule> findReturningInWindow(java.sql.Date date, java.sql.Time windowStart, java.sql.Time windowEnd) throws SQLException {
+        List<Vehicule> vehicules = new ArrayList<>();
+        java.sql.Timestamp tsStart = java.sql.Timestamp.valueOf(date.toLocalDate().atTime(windowStart.toLocalTime()));
+        java.sql.Timestamp tsEnd = java.sql.Timestamp.valueOf(date.toLocalDate().atTime(windowEnd.toLocalTime()));
+        
+        String sql = "SELECT * FROM vehicules WHERE available_from >= ? AND available_from <= ? ORDER BY available_from ASC";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, tsStart);
+            stmt.setTimestamp(2, tsEnd);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    vehicules.add(mapResultSet(rs));
+                }
+            }
+        }
+        return vehicules;
+    }
+
+    /**
+     * Sprint 8 : Met à jour available_from avec une Time (convertit en Timestamp du jour).
+     */
+    public void updateAvailableFrom(int id, java.sql.Time time) throws SQLException {
+        java.sql.Timestamp ts = java.sql.Timestamp.valueOf(
+            java.time.LocalDate.now().atTime(time.toLocalTime())
+        );
+        updateAvailableFrom(id, ts);
+    }
+
+    /**
+     * Sprint 8 : Met à jour available_from avec une date et une Time.
+     */
+    public void updateAvailableFrom(int id, java.sql.Date date, java.sql.Time time) throws SQLException {
+        java.sql.Timestamp ts = java.sql.Timestamp.valueOf(
+            date.toLocalDate().atTime(time.toLocalTime())
+        );
+        updateAvailableFrom(id, ts);
+    }
 }

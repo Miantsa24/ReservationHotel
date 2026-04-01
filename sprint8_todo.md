@@ -1,5 +1,31 @@
 # Sprint 8 — Priorisation des réservations non assignées
 
+## ✅ PROGRESSION
+
+### Dev1 — Backend Core : Alexandra ETU003306
+- [x] 1. DB & Migration (colonnes priority_order, window_origin_id, first_window_time)
+- [x] 2. DAO — Nouvelles méthodes (ReservationDAO, VehiculeDAO)
+- [x] 3. Modification de `allocateForGroup()` → `allocateForGroupSprint8()`
+- [x] 4. Nouvelle méthode `traiterRetourVehicule()` 
+- [x] 5. Tests unitaires Dev1 (GroupingServiceSprint8Dev1Test.java - 7 tests)
+
+### Dev2 — Intégration : Tojo ETU003362
+- [x] 1. Intégration de `traiterRetourVehicule()` dans le flux
+- [x] 5. Controllers - Nouveaux endpoints (/traiter-retour, /traiter-retour-persist, /non-assignes, /simuler-retour)
+- [x] 6. JSP / UI - Pages Sprint 8 créées + sections include pour tracabilite et assignation-detail
+- [x] 2. Modification du départ véhicule (checkAndTriggerDeparture, DepartureDecision, triggerDeparture)
+- [x] 3. Mise à jour `available_from` après départ (updateAvailableFrom, calculateReturnTime, handleVehicleDeparture, DepartureResult)
+- [x] 4. VehiculeTrajet — Méthodes Sprint 8 ajoutées (findLastTrajetByVehicule, findArrivingInWindow, updateHeureArrivee)
+- [x] 7. Tests d'intégration Dev2 (Sprint8IntegrationTest.java - 7 tests)
+
+### TL — Coordination
+- [x] 1. Assigner les tâches
+- [ ] 2. Valider la stratégie
+- [ ] 3. Revoir les PR et valider les tests
+- [ ] 4. Gérer les merges
+
+---
+
 ## 🎯 Objectif du Sprint
 Prioriser les **passagers non assignés** (ceux qui n'ont pas pu être placés lors d'une fenêtre précédente) lorsqu'un véhicule revient à l'aéroport et ouvre une nouvelle fenêtre d'attente.
 
@@ -424,13 +450,13 @@ void testMultipleWindowChain() {
 
 ## ✅ Critères d'acceptation
 
-- [ ] Les non assignés ont une **priorité absolue** sur les nouvelles réservations
-- [ ] `traiterRetourVehicule()` crée une nouvelle fenêtre à partir de `available_from`
-- [ ] Véhicule plein → départ immédiat
-- [ ] Véhicule non plein → attente fin de fenêtre
-- [ ] Les non assignés sont reportés correctement entre fenêtres
-- [ ] L'UI affiche clairement les non assignés en attente
-- [ ] Les tests couvrent les 3 cas du Sprint 8
+- [x] Les non assignés ont une **priorité absolue** sur les nouvelles réservations
+- [x] `traiterRetourVehicule()` crée une nouvelle fenêtre à partir de `available_from`
+- [x] Véhicule plein → départ immédiat
+- [x] Véhicule non plein → attente fin de fenêtre
+- [x] Les non assignés sont reportés correctement entre fenêtres
+- [x] L'UI affiche clairement les non assignés en attente
+- [x] Les tests couvrent les 3 cas du Sprint 8
 
 ---
 
@@ -463,7 +489,7 @@ void testMultipleWindowChain() {
 
 - [ ] Intégrer `traiterRetourVehicule()` dans le flux (après retour véhicule)
 - [ ] Logique départ immédiat si véhicule plein
-- [ ] Mise à jour `available_from` après départ
+     - [ ] Mise à jour `available_from` après départ
 - [ ] Endpoint `/traiter-retour`
 - [ ] Endpoint `/non-assignes`
 - [ ] `non-assignes.jsp`

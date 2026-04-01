@@ -105,4 +105,88 @@ public class VehiculeTrajetDAO {
         try { t.setUpdatedAt(rs.getTimestamp("updated_at")); } catch (SQLException ignored) {}
         return t;
     }
+
+    // ===============================
+    // SPRINT 8 : Méthodes pour gestion retour véhicule
+    // ===============================
+
+    /**
+     * Sprint 8 : Récupère le dernier trajet d'un véhicule pour une date donnée.
+     */
+    public VehiculeTrajet findLastTrajetByVehicule(int vehiculeId, Date date) throws SQLException {
+        String sql = "SELECT * FROM vehicule_trajet WHERE vehicule_id = ? AND date = ? ORDER BY heure_depart DESC LIMIT 1";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, vehiculeId);
+            stmt.setDate(2, date);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) return mapResultSet(rs);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Sprint 8 : Récupère les trajets en cours (pas encore arrivés) pour une date.
+     */
+    public List<VehiculeTrajet> findInProgressTrajets(Date date) throws SQLException {
+        String sql = "SELECT * FROM vehicule_trajet WHERE date = ? AND heure_arrivee > NOW() ORDER BY heure_arrivee ASC";
+        List<VehiculeTrajet> result = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setDate(1, date);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) result.add(mapResultSet(rs));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Récupère les trajets dont l'arrivée est dans une fenêtre donnée.
+     * Utile pour déclencher traiterRetourVehicule.
+     */
+    public List<VehiculeTrajet> findArrivingInWindow(Date date, Timestamp windowStart, Timestamp windowEnd) throws SQLException {
+        String sql = "SELECT * FROM vehicule_trajet WHERE date = ? AND heure_arrivee >= ? AND heure_arrivee <= ? ORDER BY heure_arrivee ASC";
+        List<VehiculeTrajet> result = new ArrayList<>();
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setDate(1, date);
+            stmt.setTimestamp(2, windowStart);
+            stmt.setTimestamp(3, windowEnd);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) result.add(mapResultSet(rs));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Met à jour l'heure d'arrivée effective d'un trajet.
+     */
+    public void updateHeureArrivee(int trajetId, Timestamp heureArrivee) throws SQLException {
+        String sql = "UPDATE vehicule_trajet SET heure_arrivee = ?, updated_at = NOW() WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setTimestamp(1, heureArrivee);
+            stmt.setInt(2, trajetId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Sprint 8 : Compte le nombre de trajets effectués par un véhicule pour une date.
+     */
+    public int countByVehiculeAndDate(int vehiculeId, Date date) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM vehicule_trajet WHERE vehicule_id = ? AND date = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, vehiculeId);
+            stmt.setDate(2, date);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) return rs.getInt(1);
+            }
+        }
+        return 0;
+    }
 }
