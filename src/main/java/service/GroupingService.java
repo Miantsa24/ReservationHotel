@@ -540,6 +540,7 @@ public class GroupingService {
         // Sort reservations descending by nombrePersonnes as preparation step
         workRes.sort((a,b) -> Integer.compare(b.getNombrePersonnes(), a.getNombrePersonnes()));
 
+        
         // For each vehicle, try to fill it progressively
         for (Vehicule v : vehicules) {
             int vid = v.getId();
