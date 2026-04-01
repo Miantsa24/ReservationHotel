@@ -448,21 +448,47 @@ void testMultipleWindowChain() {
 
 ## 📊 ÉTAT D'AVANCEMENT SPRINT 8
 
-### ❌ Tâches À FAIRE (Dev1 - Alexandra)
+### ✅ Tâches COMPLÉTÉES (Dev1 - Alexandra)
 
-- [ ] Vérifier colonnes Sprint 7 fonctionnelles
-- [ ] Ajouter colonnes `priority_order`, `window_origin_id` si nécessaire
-- [ ] `ReservationDAO.findUnassignedPassengers()`
-- [ ] `ReservationDAO.findUnassignedForWindow()`
-- [ ] `VehiculeDAO.findAvailableFrom()`
-- [ ] Modifier `allocateForGroup()` pour accepter les non assignés en priorité
-- [ ] Implémenter `traiterRetourVehicule()`
-- [ ] Tests unitaires Sprint 8
+- [x] Vérifier colonnes Sprint 7 fonctionnelles (`assigned_count`, `passengers_assigned`)
+- [x] Ajouter colonnes `priority_order`, `window_origin_id`, `first_window_time`
+- [x] Migration SQL Sprint 8 (`sprint8_migration.sql`)
+- [x] Modèle `Reservation.java` mis à jour avec champs Sprint 8
+- [x] `ReservationDAO.findUnassignedPassengers()`
+- [x] `ReservationDAO.findUnassignedForWindow()`
+- [x] `ReservationDAO.findInWindow()`
+- [x] `ReservationDAO.updatePriorityOrder()`
+- [x] `ReservationDAO.updateFirstWindowTime()`
+- [x] `ReservationDAO.markAsPriority()`
+- [x] `ReservationDAO.resetPriority()`
+- [x] `VehiculeDAO.findAvailableFrom(Date, Time)`
+- [x] `VehiculeDAO.findNextAvailable(Date, Time)`
+- [x] `VehiculeDAO.findAvailableNow()`
+- [x] `VehiculeDAO.findReturningInWindow()`
+- [x] `VehiculeDAO.markAsInTransit()`
+- [x] `VehiculeDAO.markAsAvailable()`
+- [x] Modifier `allocateForGroup()` pour accepter les non assignés en priorité → `allocateForGroupSprint8()`
+- [x] Helper `copyReservations()` pour éviter mutation des objets
+- [x] Helper `selectBestCandidate()` pour scoring Sprint 7
+- [x] **Implémenter `traiterRetourVehicule()`** — MÉTHODE CENTRALE SPRINT 8
+- [x] Helper `addMinutes(Time, int)` pour calcul fin de fenêtre
+- [x] `isVehicleFull(Vehicule, AllocationResult)` pour départ immédiat
+- [x] `traiterRetourVehiculeEtPersister()` version avec persistance auto
+- [x] **Tests unitaires Sprint 8** → `GroupingServiceSprint8Dev1Test.java`
+  - [x] `testUnassignedHavePriority()` - Priorité absolue des non assignés
+  - [x] `testVehicleFullWithUnassignedOnly()` - Véhicule plein → départ immédiat
+  - [x] `testVehiclePartiallyFilled()` - Véhicule partiel → attendre fin fenêtre
+  - [x] `testChainedWindows()` - Chaîne de fenêtres avec report
+  - [x] `testSprint8CompleteExample()` - Exemple complet Cas 3 du sprint8.md
+  - [x] `testUnassignedFIFOOrder()` - Ordre FIFO par ancienneté
+  - [x] `testAllocateForGroupSprint8AutoSeparation()` - Séparation automatique
+
+### ✅ Tâches COMPLÉTÉES (Dev1 - Alexandra) - TOUTES TERMINÉES
 
 ### ❌ Tâches À FAIRE (Dev2 - Tojo)
 
 - [ ] Intégrer `traiterRetourVehicule()` dans le flux (après retour véhicule)
-- [ ] Logique départ immédiat si véhicule plein
+- [ ] Logique départ immédiat si véhicule plein → `isVehicleFull()` implémenté ✓
 - [ ] Mise à jour `available_from` après départ
 - [ ] Endpoint `/traiter-retour`
 - [ ] Endpoint `/non-assignes`

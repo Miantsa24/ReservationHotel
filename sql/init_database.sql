@@ -150,7 +150,46 @@ ALTER TABLE reservation_vehicule ADD COLUMN IF NOT EXISTS passengers_assigned IN
 -- 3. Index pour performance (optionnel)
 CREATE INDEX IF NOT EXISTS idx_rv_passengers ON reservation_vehicule(passengers_assigned);
 
--- 4. Vérification
+-- 4. Vérification Sprint 7
 SELECT 'Migration Sprint 7 terminée!' AS status;
 SHOW COLUMNS FROM reservations LIKE 'assigned_count';
 SHOW COLUMNS FROM reservation_vehicule LIKE 'passengers_assigned';
+
+-- //Sprint8
+-- =============================================
+-- Priorisation des réservations non assignées
+-- =============================================
+
+-- 1. Ajouter priority_order à reservations (ordre de priorité FIFO pour non assignés)
+ALTER TABLE reservations 
+  ADD COLUMN IF NOT EXISTS priority_order INT NOT NULL DEFAULT 0 
+  COMMENT 'Ordre de priorité pour non assignés (0 = normal, >0 = prioritaire)';
+
+-- 2. Ajouter window_origin_id à reservations (référence fenêtre d'origine)
+ALTER TABLE reservations 
+  ADD COLUMN IF NOT EXISTS window_origin_id INT NULL 
+  COMMENT 'ID de la fenêtre temporelle d''origine';
+
+-- 3. Ajouter first_window_time à reservations (timestamp première fenêtre)
+ALTER TABLE reservations 
+  ADD COLUMN IF NOT EXISTS first_window_time DATETIME NULL 
+  COMMENT 'Timestamp de la première fenêtre d''attente';
+
+-- 4. Index pour recherche rapide des non assignés
+CREATE INDEX IF NOT EXISTS idx_reservations_priority 
+  ON reservations(priority_order, first_window_time);
+
+CREATE INDEX IF NOT EXISTS idx_reservations_unassigned 
+  ON reservations(date_arrivee, assigned_count, nombre_personnes);
+
+-- 5. Initialisation des données existantes
+UPDATE reservations 
+SET priority_order = 0,
+    first_window_time = CONCAT(date_arrivee, ' ', heure_arrivee)
+WHERE first_window_time IS NULL;
+
+-- 6. Vérification Sprint 8
+SELECT 'Migration Sprint 8 terminée!' AS status;
+SHOW COLUMNS FROM reservations LIKE 'priority_order';
+SHOW COLUMNS FROM reservations LIKE 'window_origin_id';
+SHOW COLUMNS FROM reservations LIKE 'first_window_time';

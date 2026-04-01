@@ -614,7 +614,389 @@ public class GroupingService {
         return result;
     }
 
-    
+    // ===============================
+    // Sprint 8 : Allocation avec priorité pour les non assignés
+    // ===============================
+
+    /**
+     * Sprint 8 : Core allocation algorithm with priority for unassigned passengers.
+     * 
+     * RÈGLE PRIORITÉ ABSOLUE : Les non assignés des fenêtres précédentes passent EN PREMIER.
+     * 
+     * @param date La date d'allocation
+     * @param windowStart L'heure de début de la fenêtre
+     * @param unassignedPriority Les réservations non assignées (priorité absolue) - triées par ancienneté
+     * @param newReservations Les nouvelles réservations de cette fenêtre
+     * @param vehicules Les véhicules disponibles
+     * @return AllocationResult avec les assignations et les restants
+     */
+    public AllocationResult allocateForGroupSprint8(
+            Date date, 
+            Time windowStart, 
+            List<Reservation> unassignedPriority, 
+            List<Reservation> newReservations, 
+            List<Vehicule> vehicules) throws SQLException {
+        
+        AllocationResult result = new AllocationResult();
+
+        // Copier les réservations prioritaires (non assignés)
+        List<Reservation> workPriority = copyReservations(unassignedPriority);
+        
+        // Copier les nouvelles réservations
+        List<Reservation> workNew = copyReservations(newReservations);
+
+        // Initialize remaining capacities using DB (sum of passengers_assigned)
+        Map<Integer, Integer> remainingCap = new HashMap<>();
+        for (Vehicule v : vehicules) {
+            int occupied = reservationVehiculeDAO.sumAssignedByVehicule(v.getId());
+            int free = v.getCapacite() - occupied;
+            remainingCap.put(v.getId(), Math.max(0, free));
+        }
+
+        // Trier les véhicules par capacité décroissante pour optimiser le remplissage
+        List<Vehicule> sortedVehicules = new ArrayList<>(vehicules);
+        sortedVehicules.sort((a, b) -> Integer.compare(b.getCapacite(), a.getCapacite()));
+
+        // Pour chaque véhicule
+        for (Vehicule v : sortedVehicules) {
+            int vid = v.getId();
+            int free = remainingCap.getOrDefault(vid, 0);
+            if (free <= 0) continue;
+
+            // ========================================
+            // ÉTAPE 1 : PRIORITÉ ABSOLUE - Non assignés d'abord
+            // ========================================
+            // Les non assignés sont déjà triés par ancienneté (first_window_time ASC)
+            for (Reservation r : workPriority) {
+                if (free <= 0) break;
+                int need = r.getRemaining();
+                if (need <= 0) continue;
+
+                int assign = Math.min(free, need);
+                if (assign > 0) {
+                    ReservationVehicule rv = new ReservationVehicule(r.getId(), vid);
+                    rv.setPassengersAssigned(assign);
+                    result.assignments.add(rv);
+
+                    r.setAssignedCount(r.getAssignedCount() + assign);
+                    free -= assign;
+                }
+            }
+
+            // ========================================
+            // ÉTAPE 2 : Nouvelles réservations avec algorithme Sprint 7
+            // ========================================
+            // Trier par nombre de passagers décroissant
+            workNew.sort((a, b) -> Integer.compare(b.getNombrePersonnes(), a.getNombrePersonnes()));
+
+            while (free > 0) {
+                // Candidats avec remaining > 0
+                List<Reservation> candidates = new ArrayList<>();
+                for (Reservation r : workNew) {
+                    if (r.getRemaining() > 0) candidates.add(r);
+                }
+                if (candidates.isEmpty()) break;
+
+                // Choisir le meilleur candidat selon Sprint 7
+                Reservation best = selectBestCandidate(candidates, free);
+                if (best == null) break;
+
+                int need = best.getRemaining();
+                int assign = Math.min(free, need);
+                if (assign <= 0) break;
+
+                ReservationVehicule rv = new ReservationVehicule(best.getId(), vid);
+                rv.setPassengersAssigned(assign);
+                result.assignments.add(rv);
+
+                best.setAssignedCount(best.getAssignedCount() + assign);
+                free -= assign;
+            }
+
+            remainingCap.put(vid, free);
+        }
+
+        // Collecter les réservations restantes (non assignées pour la prochaine fenêtre)
+        for (Reservation r : workPriority) {
+            if (r.getRemaining() > 0) result.remainingReservations.add(r);
+        }
+        for (Reservation r : workNew) {
+            if (r.getRemaining() > 0) result.remainingReservations.add(r);
+        }
+
+        result.finalVehicleRemaining.putAll(remainingCap);
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Surcharge simplifiée qui combine automatiquement les listes.
+     * Utilise le DAO pour récupérer les non assignés si non fournis.
+     */
+    public AllocationResult allocateForGroupSprint8(
+            Date date, 
+            Time windowStart, 
+            List<Reservation> allReservations, 
+            List<Vehicule> vehicules) throws SQLException {
+        
+        // Séparer les réservations en prioritaires et nouvelles
+        List<Reservation> unassignedPriority = new ArrayList<>();
+        List<Reservation> newReservations = new ArrayList<>();
+        
+        for (Reservation r : allReservations) {
+            if (r.isPriority()) {
+                unassignedPriority.add(r);
+            } else {
+                newReservations.add(r);
+            }
+        }
+        
+        // Trier les prioritaires par ancienneté
+        unassignedPriority.sort((a, b) -> {
+            if (a.getFirstWindowTime() == null && b.getFirstWindowTime() == null) return 0;
+            if (a.getFirstWindowTime() == null) return 1;
+            if (b.getFirstWindowTime() == null) return -1;
+            return a.getFirstWindowTime().compareTo(b.getFirstWindowTime());
+        });
+        
+        return allocateForGroupSprint8(date, windowStart, unassignedPriority, newReservations, vehicules);
+    }
+
+    /**
+     * Helper : copie une liste de réservations pour éviter de muter les objets originaux.
+     */
+    private List<Reservation> copyReservations(List<Reservation> reservations) {
+        List<Reservation> copies = new ArrayList<>();
+        for (Reservation r : reservations) {
+            Reservation copy = new Reservation();
+            copy.setId(r.getId());
+            copy.setHotelId(r.getHotelId());
+            copy.setDateArrivee(r.getDateArrivee());
+            copy.setHeureArrivee(r.getHeureArrivee());
+            copy.setNombrePersonnes(r.getNombrePersonnes());
+            copy.setRefClient(r.getRefClient());
+            copy.setAssignedCount(r.getAssignedCount());
+            copy.setStatus(r.getStatus());
+            copy.setHotelNom(r.getHotelNom());
+            // Sprint 8 fields
+            copy.setPriorityOrder(r.getPriorityOrder());
+            copy.setWindowOriginId(r.getWindowOriginId());
+            copy.setFirstWindowTime(r.getFirstWindowTime());
+            copies.add(copy);
+        }
+        return copies;
+    }
+
+    /**
+     * Sprint 7 : Sélectionne le meilleur candidat selon le scoring.
+     * Score = remainingCapacity - reservation.remaining
+     * Priorité : score négatif > score positif, puis plus proche de 0, puis date/heure/id.
+     */
+    private Reservation selectBestCandidate(List<Reservation> candidates, int free) {
+        Reservation best = null;
+        int bestScore = Integer.MAX_VALUE;
+        
+        for (Reservation cand : candidates) {
+            int score = free - cand.getRemaining();
+            if (best == null) { 
+                best = cand; 
+                bestScore = score; 
+                continue; 
+            }
+            
+            boolean bestNeg = bestScore < 0;
+            boolean curNeg = score < 0;
+            
+            // Priorité aux scores négatifs
+            if (curNeg && !bestNeg) {
+                best = cand; 
+                bestScore = score; 
+                continue;
+            }
+            
+            if (curNeg == bestNeg) {
+                int absCur = Math.abs(score);
+                int absBest = Math.abs(bestScore);
+                
+                // Plus proche de 0 est meilleur
+                if (absCur < absBest) { 
+                    best = cand; 
+                    bestScore = score; 
+                    continue; 
+                }
+                
+                // Égalité : départager par date, heure, id
+                if (absCur == absBest) {
+                    int cmpDate = cand.getDateArrivee().compareTo(best.getDateArrivee());
+                    if (cmpDate < 0) { 
+                        best = cand; 
+                        bestScore = score; 
+                        continue; 
+                    }
+                    if (cmpDate == 0) {
+                        int cmpTime = cand.getHeureArrivee().compareTo(best.getHeureArrivee());
+                        if (cmpTime < 0) { 
+                            best = cand; 
+                            bestScore = score; 
+                            continue; 
+                        }
+                        if (cmpTime == 0 && cand.getId() < best.getId()) { 
+                            best = cand; 
+                            bestScore = score; 
+                        }
+                    }
+                }
+            }
+        }
+        
+        return best;
+    }
+
+    // ===============================
+    // Sprint 8 : Méthode centrale - Traitement retour véhicule
+    // ===============================
+
+    /**
+     * MÉTHODE CENTRALE DU SPRINT 8
+     * 
+     * Traite le retour d'un véhicule à l'aéroport et relance l'allocation
+     * avec priorité pour les passagers non assignés des fenêtres précédentes.
+     * 
+     * Cette méthode :
+     * 1. Détecte l'événement métier (retour véhicule)
+     * 2. Récupère les passagers non assignés (PRIORITÉ ABSOLUE)
+     * 3. Crée une nouvelle fenêtre d'attente
+     * 4. Récupère les nouvelles réservations dans cette fenêtre
+     * 5. Lance l'allocation Sprint 8 avec priorité
+     * 6. Marque les non assignés restants pour la prochaine fenêtre
+     * 
+     * @param vehiculeId ID du véhicule qui revient
+     * @param date La date courante
+     * @param returnTime L'heure de retour du véhicule à l'aéroport
+     * @return AllocationResult avec les assignations, ou null si véhicule non disponible
+     */
+    public AllocationResult traiterRetourVehicule(int vehiculeId, Date date, Time returnTime) throws SQLException {
+        // 1. Récupérer le véhicule
+        Vehicule v = vehiculeDAO.findById(vehiculeId);
+        if (v == null) {
+            throw new IllegalArgumentException("Véhicule non trouvé: " + vehiculeId);
+        }
+
+        // 2. Vérifier qu'il est disponible (available_from <= returnTime ou null)
+        Timestamp availableFrom = v.getAvailableFrom();
+        if (availableFrom != null) {
+            Timestamp returnTs = Timestamp.valueOf(date.toLocalDate().atTime(returnTime.toLocalTime()));
+            if (availableFrom.after(returnTs)) {
+                // Véhicule pas encore disponible
+                return null;
+            }
+        }
+
+        // 3. Récupérer les non assignés (PRIORITÉ ABSOLUE)
+        // Triés par ancienneté (first_window_time ASC, priority_order DESC)
+        List<Reservation> unassigned = reservationDAO.findUnassignedPassengers(date);
+
+        // 4. Définir la nouvelle fenêtre
+        Time windowStart = returnTime;
+        Time windowEnd = addMinutes(returnTime, v.getTempsAttente());
+
+        // 5. Récupérer les nouvelles réservations dans cette fenêtre
+        // (réservations qui arrivent entre windowStart et windowEnd)
+        List<Reservation> newReservations = reservationDAO.findInWindow(date, windowStart, windowEnd);
+        
+        // Exclure les réservations déjà dans unassigned (éviter doublons)
+        List<Reservation> filteredNew = new ArrayList<>();
+        for (Reservation r : newReservations) {
+            boolean alreadyInUnassigned = false;
+            for (Reservation u : unassigned) {
+                if (u.getId() == r.getId()) {
+                    alreadyInUnassigned = true;
+                    break;
+                }
+            }
+            if (!alreadyInUnassigned) {
+                filteredNew.add(r);
+            }
+        }
+
+        // 6. Lancer l'allocation avec priorité (Sprint 8)
+        AllocationResult result = allocateForGroupSprint8(
+            date, 
+            windowStart, 
+            unassigned,        // PRIORITÉ ABSOLUE
+            filteredNew,       // Nouvelles réservations
+            List.of(v)         // Un seul véhicule
+        );
+
+        // 7. Marquer les non assignés restants pour la prochaine fenêtre
+        Timestamp windowTimestamp = Timestamp.valueOf(date.toLocalDate().atTime(windowStart.toLocalTime()));
+        for (Reservation r : result.remainingReservations) {
+            // Incrémenter la priorité pour la prochaine fenêtre
+            reservationDAO.markAsPriority(r.getId(), windowTimestamp);
+        }
+
+        // 8. Mettre à jour le statut du véhicule
+        // Le véhicule sera à nouveau disponible après avoir déposé les passagers
+        // (cette mise à jour sera faite lors de la persistance du trajet)
+
+        return result;
+    }
+
+    /**
+     * Sprint 8 : Vérifie si le véhicule est plein et doit partir immédiatement.
+     * 
+     * @param v Le véhicule
+     * @param result Le résultat de l'allocation
+     * @return true si le véhicule est plein (départ immédiat), false sinon (attendre fin de fenêtre)
+     */
+    public boolean isVehicleFull(Vehicule v, AllocationResult result) throws SQLException {
+        int totalAssigned = 0;
+        for (ReservationVehicule rv : result.assignments) {
+            if (rv.getIdVehicule() == v.getId()) {
+                totalAssigned += rv.getPassengersAssigned();
+            }
+        }
+        
+        // Récupérer l'occupation actuelle du véhicule
+        int currentOccupied = reservationVehiculeDAO.sumAssignedByVehicule(v.getId());
+        int totalOccupied = currentOccupied + totalAssigned;
+        
+        return totalOccupied >= v.getCapacite();
+    }
+
+    /**
+     * Sprint 8 : Traite le retour d'un véhicule ET persiste le résultat.
+     * Version complète avec persistance automatique.
+     * 
+     * @param vehiculeId ID du véhicule
+     * @param date La date
+     * @param returnTime L'heure de retour
+     * @param autoPersist Si true, persiste automatiquement le résultat
+     * @return AllocationResult
+     */
+    public AllocationResult traiterRetourVehiculeEtPersister(int vehiculeId, Date date, Time returnTime, boolean autoPersist) throws SQLException {
+        AllocationResult result = traiterRetourVehicule(vehiculeId, date, returnTime);
+        
+        if (result != null && autoPersist && !result.assignments.isEmpty()) {
+            persistAllocationResult(result);
+            
+            // Vérifier si départ immédiat nécessaire
+            Vehicule v = vehiculeDAO.findById(vehiculeId);
+            if (isVehicleFull(v, result)) {
+                // TODO: Déclencher le départ immédiat
+                // triggerDeparture(v, result, returnTime);
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * Helper : Ajoute des minutes à une heure.
+     */
+    private Time addMinutes(Time time, int minutes) {
+        long millis = time.getTime() + (minutes * 60 * 1000L);
+        return new Time(millis);
+    }
 
     /**
      * Persist a previously computed AssignmentProposal in a single DB transaction.
