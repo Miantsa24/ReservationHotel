@@ -65,9 +65,15 @@ public class DatabaseConnection {
                 ) ENGINE=InnoDB;
             """);
             // adapt existing tables: add columns if missing
-            // note: MySQL 8 supports ADD COLUMN IF NOT EXISTS directly
-            stmt.executeUpdate("ALTER TABLE hotels ADD COLUMN IF NOT EXISTS code VARCHAR(10) NOT NULL");
-            stmt.executeUpdate("ALTER TABLE reservations ADD COLUMN IF NOT EXISTS ref_client VARCHAR(50)");
+            // note: "ADD COLUMN IF NOT EXISTS" is a MariaDB extension, not supported by
+            // standard MySQL Server, donc on tente et on ignore si la colonne existe déjà
+            // (ou si le serveur ne supporte pas cette syntaxe et que le CREATE TABLE ci-dessus l'a déjà créée).
+            try {
+                stmt.executeUpdate("ALTER TABLE hotels ADD COLUMN code VARCHAR(10) NOT NULL DEFAULT ''");
+            } catch (SQLException ignored) {}
+            try {
+                stmt.executeUpdate("ALTER TABLE reservations ADD COLUMN ref_client VARCHAR(50)");
+            } catch (SQLException ignored) {}
             // vehicules
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS vehicules (

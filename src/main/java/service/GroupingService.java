@@ -641,7 +641,16 @@ public class GroupingService {
 
         // Copier les réservations prioritaires (non assignés)
         List<Reservation> workPriority = copyReservations(unassignedPriority);
-        
+
+        // Garantir l'ordre FIFO par ancienneté (first_window_time ASC), même si
+        // l'appelant n'a pas déjà trié la liste.
+        workPriority.sort((a, b) -> {
+            if (a.getFirstWindowTime() == null && b.getFirstWindowTime() == null) return 0;
+            if (a.getFirstWindowTime() == null) return 1;
+            if (b.getFirstWindowTime() == null) return -1;
+            return a.getFirstWindowTime().compareTo(b.getFirstWindowTime());
+        });
+
         // Copier les nouvelles réservations
         List<Reservation> workNew = copyReservations(newReservations);
 
@@ -977,7 +986,7 @@ public class GroupingService {
         AllocationResult result = traiterRetourVehicule(vehiculeId, date, returnTime);
         
         if (result != null && autoPersist && !result.assignments.isEmpty()) {
-            persistAllocationResult(result);
+            persistAllocationResult(date, result, returnTime);
             
             // Vérifier si départ immédiat nécessaire
             Vehicule v = vehiculeDAO.findById(vehiculeId);

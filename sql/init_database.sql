@@ -1,5 +1,11 @@
 -- Script d'initialisation de la base de données Hôtel
 -- Exécuter ce script dans MySQL pour créer les tables et insérer les données
+-- IMPORTANT: ce script suppose une base "hotel_db" fraîchement créée (voir reset_hotel_db.bat,
+-- qui fait DROP DATABASE puis CREATE DATABASE avant d'exécuter ce script). Les instructions
+-- ALTER TABLE / CREATE INDEX ci-dessous n'utilisent donc pas "IF NOT EXISTS" (non supporté par
+-- MySQL Server pour ADD COLUMN / CREATE INDEX, contrairement à MariaDB) : les rejouer sur une
+-- base existante provoquera des erreurs "Duplicate column/key". Pour une migration incrémentale
+-- sur une base déjà en place, utiliser sql/sprint8_migration.sql (idempotent).
 
 -- Création de la base de données
 CREATE DATABASE IF NOT EXISTS hotel_db;
@@ -100,7 +106,7 @@ CREATE INDEX idx_vehicules_available_from ON vehicules (available_from);
 CREATE INDEX idx_reservations_date_heure ON reservations (date_arrivee, heure_arrivee);
 
 -- Index optionnel pour filtrer rapidement les réservations en attente
-CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations (status);
+CREATE INDEX idx_reservations_status ON reservations (status);
 
 ALTER TABLE `vehicules` 
    ADD COLUMN `trajets_effectues` INT DEFAULT 0;
@@ -138,17 +144,11 @@ CREATE INDEX idx_reservation_vehicule_id_vehicule ON reservation_vehicule(id_veh
 -- Pas de contrainte SQL stricte ici pour éviter blocage sur insertions partielles
 
 
--- Sprint 7 Migration Script
--- Exécuter ce script sur la base hotel_db
-
--- 1. Ajouter assigned_count à reservations
-ALTER TABLE reservations ADD COLUMN IF NOT EXISTS assigned_count INT NOT NULL DEFAULT 0;
-
--- 2. Ajouter passengers_assigned à reservation_vehicule
-ALTER TABLE reservation_vehicule ADD COLUMN IF NOT EXISTS passengers_assigned INT NOT NULL DEFAULT 0;
+-- Sprint 7 Migration Script (suite)
+-- Note : assigned_count / passengers_assigned sont déjà ajoutées ci-dessus (section 1/2).
 
 -- 3. Index pour performance (optionnel)
-CREATE INDEX IF NOT EXISTS idx_rv_passengers ON reservation_vehicule(passengers_assigned);
+CREATE INDEX idx_rv_passengers ON reservation_vehicule(passengers_assigned);
 
 -- 4. Vérification Sprint 7
 SELECT 'Migration Sprint 7 terminée!' AS status;
@@ -161,25 +161,25 @@ SHOW COLUMNS FROM reservation_vehicule LIKE 'passengers_assigned';
 -- =============================================
 
 -- 1. Ajouter priority_order à reservations (ordre de priorité FIFO pour non assignés)
-ALTER TABLE reservations 
-  ADD COLUMN IF NOT EXISTS priority_order INT NOT NULL DEFAULT 0 
+ALTER TABLE reservations
+  ADD COLUMN priority_order INT NOT NULL DEFAULT 0
   COMMENT 'Ordre de priorité pour non assignés (0 = normal, >0 = prioritaire)';
 
 -- 2. Ajouter window_origin_id à reservations (référence fenêtre d'origine)
-ALTER TABLE reservations 
-  ADD COLUMN IF NOT EXISTS window_origin_id INT NULL 
+ALTER TABLE reservations
+  ADD COLUMN window_origin_id INT NULL
   COMMENT 'ID de la fenêtre temporelle d''origine';
 
 -- 3. Ajouter first_window_time à reservations (timestamp première fenêtre)
-ALTER TABLE reservations 
-  ADD COLUMN IF NOT EXISTS first_window_time DATETIME NULL 
+ALTER TABLE reservations
+  ADD COLUMN first_window_time DATETIME NULL
   COMMENT 'Timestamp de la première fenêtre d''attente';
 
 -- 4. Index pour recherche rapide des non assignés
-CREATE INDEX IF NOT EXISTS idx_reservations_priority 
+CREATE INDEX idx_reservations_priority
   ON reservations(priority_order, first_window_time);
 
-CREATE INDEX IF NOT EXISTS idx_reservations_unassigned 
+CREATE INDEX idx_reservations_unassigned
   ON reservations(date_arrivee, assigned_count, nombre_personnes);
 
 -- 5. Initialisation des données existantes

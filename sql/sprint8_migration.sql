@@ -30,43 +30,78 @@ WHERE TABLE_SCHEMA = 'hotel_db'
   AND COLUMN_NAME = 'passengers_assigned';
 
 -- =============================================
+-- NOTE portabilité :
+-- MySQL Server ne supporte pas "ADD COLUMN IF NOT EXISTS" / "CREATE INDEX IF NOT EXISTS"
+-- (contrairement à MariaDB). Chaque ajout ci-dessous est donc gardé par une vérification
+-- INFORMATION_SCHEMA + SQL préparé dynamique, ce qui rend ce script rejouable sans erreur
+-- que la colonne/l'index existe déjà ou non, sur MySQL comme sur MariaDB.
+-- =============================================
+
+-- =============================================
 -- 2) Ajouter priority_order à reservations
 --    Ordre de priorité pour les non assignés (FIFO)
 --    Plus le nombre est bas, plus la priorité est haute
 -- =============================================
-ALTER TABLE reservations
-  ADD COLUMN IF NOT EXISTS priority_order INT NOT NULL DEFAULT 0 
-  COMMENT 'Ordre de priorité pour non assignés (0 = normal, >0 = prioritaire)';
+SET @col_exists := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reservations' AND COLUMN_NAME = 'priority_order');
+SET @sql := IF(@col_exists = 0,
+  'ALTER TABLE reservations ADD COLUMN priority_order INT NOT NULL DEFAULT 0 COMMENT ''Ordre de priorite pour non assignes (0 = normal, >0 = prioritaire)''',
+  'SELECT ''priority_order existe deja'' AS info');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- =============================================
 -- 3) Ajouter window_origin_id à reservations
 --    Référence à la fenêtre d'origine où la réservation
 --    a été créée ou première tentative d'assignation
 -- =============================================
-ALTER TABLE reservations
-  ADD COLUMN IF NOT EXISTS window_origin_id INT NULL 
-  COMMENT 'ID de la fenêtre temporelle d''origine';
+SET @col_exists := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reservations' AND COLUMN_NAME = 'window_origin_id');
+SET @sql := IF(@col_exists = 0,
+  'ALTER TABLE reservations ADD COLUMN window_origin_id INT NULL COMMENT ''ID de la fenetre temporelle d''''origine''',
+  'SELECT ''window_origin_id existe deja'' AS info');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- =============================================
 -- 4) Ajouter first_window_time à reservations
 --    Timestamp de la première fenêtre où la réservation
 --    a été considérée (pour calcul d'ancienneté)
 -- =============================================
-ALTER TABLE reservations
-  ADD COLUMN IF NOT EXISTS first_window_time DATETIME NULL 
-  COMMENT 'Timestamp de la première fenêtre d''attente';
+SET @col_exists := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reservations' AND COLUMN_NAME = 'first_window_time');
+SET @sql := IF(@col_exists = 0,
+  'ALTER TABLE reservations ADD COLUMN first_window_time DATETIME NULL COMMENT ''Timestamp de la premiere fenetre d''''attente''',
+  'SELECT ''first_window_time existe deja'' AS info');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- =============================================
 -- 5) Index pour accélérer la recherche des non assignés
 -- =============================================
 -- Index pour trouver rapidement les réservations avec passagers restants
 -- remaining = nombre_personnes - assigned_count > 0
-CREATE INDEX IF NOT EXISTS idx_reservations_priority 
-  ON reservations(priority_order, first_window_time);
+SET @idx_exists := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reservations' AND INDEX_NAME = 'idx_reservations_priority');
+SET @sql := IF(@idx_exists = 0,
+  'CREATE INDEX idx_reservations_priority ON reservations(priority_order, first_window_time)',
+  'SELECT ''idx_reservations_priority existe deja'' AS info');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- Index composite pour requête des non assignés par date
-CREATE INDEX IF NOT EXISTS idx_reservations_unassigned 
-  ON reservations(date_arrivee, assigned_count, nombre_personnes);
+SET @idx_exists := (SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'reservations' AND INDEX_NAME = 'idx_reservations_unassigned');
+SET @sql := IF(@idx_exists = 0,
+  'CREATE INDEX idx_reservations_unassigned ON reservations(date_arrivee, assigned_count, nombre_personnes)',
+  'SELECT ''idx_reservations_unassigned existe deja'' AS info');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- =============================================
 -- 6) Initialisation des données existantes
